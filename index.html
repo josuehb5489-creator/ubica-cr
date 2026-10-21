@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ubicá Costa Rica · INEC</title>
-<meta name="description" content="Juego diario de geografía de Costa Rica: ubicá 15 lugares en el mapa.">
+<meta name="description" content="Juego diario de geografía de Costa Rica: ubicá 20 lugares en el mapa.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -106,7 +106,17 @@ table.sum td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:t
 @media (prefers-reduced-motion:no-preference){.drop{animation:drop .25s ease-out}@keyframes drop{from{opacity:0}to{opacity:1}}}
 
 .tag.d4{color:var(--accent);border-color:currentColor}
-.tag.d5{color:var(--truth);border-color:currentColor}
+.tag.d5{color:var(--bad);border-color:currentColor}
+.tag.d6{color:var(--truth);border-color:currentColor}
+.timer{display:flex;align-items:center;gap:10px}
+.timer .track{flex:1;height:8px;border-radius:4px;background:var(--rule);overflow:hidden}
+.timer .fill{display:block;height:100%;width:100%;background:var(--good);transform-origin:left center}
+.timer .secs{font:600 15px var(--f-mono);font-variant-numeric:tabular-nums;min-width:4.2em;text-align:right}
+.timer.warn .fill{background:var(--mid)}.timer.urgent .fill{background:var(--bad)}.timer.urgent .secs{color:var(--bad)}
+.mtimer{position:absolute;left:0;right:0;top:0;height:5px;background:color-mix(in srgb,var(--rule) 70%,transparent);pointer-events:none}
+.mtimer span{display:block;height:100%;width:100%;background:var(--good);transform-origin:left center}
+.mtimer.warn span{background:var(--mid)}.mtimer.urgent span{background:var(--bad)}
+.out{color:var(--bad)}
 .inst{display:flex;flex-wrap:wrap;gap:4px 0;align-items:center;background:var(--ink);color:var(--paper);font:600 12px var(--f-body);letter-spacing:.12em;text-transform:uppercase;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .inst span+span::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--accent);margin:0 10px;vertical-align:middle}
 .inst span:first-child{font-family:var(--f-display);font-size:15px;letter-spacing:.18em}
@@ -130,6 +140,7 @@ table.board tr.me td{color:var(--accent);font-weight:600}
 .status{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--paper);border:1px solid var(--rule)}
 .status.ok{border-color:var(--good);color:var(--good)}.status.err{border-color:var(--bad);color:var(--bad)}
 @media (max-width:820px){.who{display:none}}
+@media (max-width:480px){.inst{font-size:10px;letter-spacing:.05em}.inst span:first-child{font-size:13px;letter-spacing:.1em}.inst span+span::before{margin:0 6px}}
 </style>
 </head>
 <body>
@@ -149,6 +160,7 @@ table.board tr.me td{color:var(--accent);font-weight:600}
       <svg id="map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa de Costa Rica sin nombres">
         <g id="gBase"></g><g id="gGrat"></g><g id="gMarks"></g>
       </svg>
+      <div class="mtimer" id="mTimer" hidden><span id="mBar"></span></div>
       <div class="coords" id="coords">CRTM05 · mové el cursor sobre el mapa</div>
       <div class="zoom"><button id="zIn" aria-label="Acercar">+</button><button id="zOut" aria-label="Alejar">−</button><button id="zReset" aria-label="Ver todo el país">⤢</button></div>
     </div>
@@ -163,9 +175,15 @@ table.board tr.me td{color:var(--accent);font-weight:600}
 // Pegá aquí la URL de la aplicación web de Apps Script (termina en /exec).
 // Si queda vacía, el juego funciona pero sin tabla de posiciones.
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwusm0u5WWvsfJwF9Otw8pIeD2G5mQV4AgSGdEzGOWmYIdGEVSxD0anf7SA8I0VQtjPcA/exec";
-// Composición de las 15 rondas del reto diario:
-//   1 Fácil · 2 Media · 3 Difícil · 4 Poblado · "PN" Parque nacional · "D" Distrito
-const RONDAS = [1,1,1,2,2,2,"PN","PN",3,3,"D","D","D",4,4];
+// Composición de las 20 rondas del reto diario, de menor a mayor dificultad:
+//   1 Fácil · 2 Media · 3 Difícil · 4 Poblado · 5 Experto (poblado alejado)
+//   "PN" Parque nacional · "D" Distrito · "D+" Distrito pequeño (menos de 20 km²)
+const RONDAS = [1,1,1, 2,2,2,2, "PN","PN",3, 3,"D","D", 4,4, "D+",5,5,"D+",5];
+// Segundos para marcar cada lugar. Si se acaba el tiempo sin marca, el lugar vale 0.
+// Si hay una marca puesta sin confirmar, se toma esa marca.
+const TIEMPO = 10;
+// Práctica: siempre los mismos 5 lugares (nombres exactos de lugares.js).
+const PRACTICA = ["Volcán Irazú","Puerto Limón","Playa Tamarindo","PN Corcovado, estación Sirena","San Gerardo de Dota"];
 // Capa de distritos (GeoJSON en WGS84) y nombres de sus campos.
 // Para usar la capa oficial del INEC, exportala desde QGIS y ajustá estos nombres (ver LEEME.md).
 const ARCHIVO_DISTRITOS = "distritos.geojson";
@@ -174,8 +192,9 @@ const CAMPOS = { provincia: "provincia", canton: "canton", distrito: "distrito" 
 const INICIO = new Date(2026, 9, 20);
 // =====================================================
 
-const PLACES = window.PLACES.slice(), GEO = window.GEO, NR = RONDAS.length, MAXP = NR*100;
-const DIFF=['','Fácil','Media','Difícil','Poblado','Distrito'];
+const PLACES = window.PLACES.slice(), GEO = window.GEO;
+const NR = ()=>state.rounds.length, MAXP = ()=>state.rounds.length*100;
+const DIFF=['','Fácil','Media','Difícil','Poblado','Experto','Distrito'];
 let NDIST=0, distOK=false;
 
 // ---------- proyección de pantalla ----------
@@ -252,11 +271,12 @@ document.getElementById('zReset').onclick=()=>setView(FULL);
 // ---------- marcas ----------
 function drawMarks(){gM.innerHTML='';if(!state)return;const r=view.w*0.009,fs=view.w*0.022;
   const items=state.phase==='summary'?state.results:(state.phase==='reveal'?[state.results[state.results.length-1]]:[]);
-  items.forEach(res=>{const g=P(res.guess[1],res.guess[0]),t=P(res.place[4],res.place[3]);
-    if(res.place[7]){el('path',{d:ringsD(res.place[7]),class:'distpoly'},gM);
-      if(!res.inside){const q=P(res.near[1],res.near[0]);el('line',{x1:g[0],y1:g[1],x2:q[0],y2:q[1],class:'link'},gM);}}
-    else el('line',{x1:g[0],y1:g[1],x2:t[0],y2:t[1],class:'link'},gM);
-    el('circle',{cx:g[0],cy:g[1],r,class:'guess'},gM);el('circle',{cx:t[0],cy:t[1],r:r*1.1,class:'truth drop'},gM);
+  items.forEach(res=>{const t=P(res.place[4],res.place[3]),g=res.guess?P(res.guess[1],res.guess[0]):null;
+    if(res.place[7])el('path',{d:ringsD(res.place[7]),class:'distpoly'},gM);
+    if(g){if(res.place[7]){if(!res.inside){const q=P(res.near[1],res.near[0]);el('line',{x1:g[0],y1:g[1],x2:q[0],y2:q[1],class:'link'},gM);}}
+      else el('line',{x1:g[0],y1:g[1],x2:t[0],y2:t[1],class:'link'},gM);
+      el('circle',{cx:g[0],cy:g[1],r,class:'guess'},gM);}
+    el('circle',{cx:t[0],cy:t[1],r:r*1.1,class:'truth drop'},gM);
     if(state.phase==='reveal')el('text',{x:t[0]+r*1.6,y:t[1]+fs*.35,class:'mlabel','font-size':fs,'stroke-width':fs*.25},gM).textContent=res.place[0];});
   if(state.phase==='ask'&&state.pending){const g=P(state.pending[1],state.pending[0]);
     el('circle',{cx:g[0],cy:g[1],r:r*2.2,fill:'none',stroke:'var(--accent)','stroke-width':2,'vector-effect':'non-scaling-stroke'},gM);
@@ -268,16 +288,17 @@ const pad=n=>String(n).padStart(2,'0');
 const now=new Date(),FECHA=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
 const YMD=Number(FECHA.replace(/-/g,''));
 const dayNo=Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate())-INICIO)/864e5)+1;
-const KEY='ubica-cr-v2-'+FECHA;
+const KEY='ubica-cr-v3-'+FECHA;
 let jugador=ls.get('ubica-cr-jugador')||'';
 
 // ---------- selección determinística del reto ----------
 function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function hashSeed(n){let h=2166136261;for(const c of String(n)){h=Math.imul(h^c.charCodeAt(0),16777619);}return h>>>0;}
-function fitsToken(p,d){if(!d)return true;if(d==='PN')return p[1]==='Parque nacional';if(d==='D')return p[2]===5;return p[2]===d&&p[1]!=='Parque nacional';}
+function fitsToken(p,d){if(!d)return true;if(d==='PN')return p[1]==='Parque nacional';if(d==='D')return p[2]===6;if(d==='D+')return p[2]===6&&p[8]<20;return p[2]===d&&p[1]!=='Parque nacional';}
 function pickRounds(seed,mix){const r=rng(hashSeed(seed));for(let k=0;k<5;k++)r();const used=new Set(),out=[];
-  for(let d of mix){if(d==='D'&&!distOK)d=3;
+  for(let d of mix){if((d==='D'||d==='D+')&&!distOK)d=3;
     let pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i)&&fitsToken(PLACES[i],d));
+    if(!pool.length&&d==='D+')pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i)&&fitsToken(PLACES[i],'D'));
     if(!pool.length)pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i));
     const cats=new Set(out.map(i=>PLACES[i][1]));const fresh=pool.filter(i=>!cats.has(PLACES[i][1]));if(fresh.length&&typeof d==='number'&&d<4)pool=fresh;
     const i=pool[Math.floor(r()*pool.length)];used.add(i);out.push(i);}
@@ -286,6 +307,7 @@ function pickRounds(seed,mix){const r=rng(hashSeed(seed));for(let k=0;k<5;k++)r(
 // ---------- estado ----------
 let state=null;
 function makeResult(i,guess){const p=PLACES[i];
+  if(!guess)return{i,place:p,guess:null,km:null,pts:0,timeout:true};
   if(p[7]){const inside=inGeom(guess,p[7]);const nr=inside?null:nearestOnGeom(guess,p[7]);const km=inside?0:hav(guess,nr);
     return{i,place:p,guess,km,pts:inside?100:scoreFor(km),inside,near:nr};}
   const km=hav(guess,[p[3],p[4]]);return{i,place:p,guess,km,pts:scoreFor(km)};}
@@ -319,37 +341,56 @@ async function loadDistritos(){
     feats.forEach(f=>{const pr=f.properties,g=f.geometry,[lat,lon]=repPoint(g);
       const a=areaKm2(g),n=porCanton[pr[CAMPOS.provincia]+'|'+pr[CAMPOS.canton]];
       const dato=`Mide cerca de ${a<10?a.toFixed(1):Math.round(a)} km². El cantón de ${pr[CAMPOS.canton]} tiene ${n} distrito${n===1?'':'s'}.`;
-      PLACES.push([`Distrito ${pr[CAMPOS.distrito]}`,'Distrito',5,lat,lon,`${pr[CAMPOS.canton]}, ${pr[CAMPOS.provincia]}`,dato,g]);});
+      PLACES.push([`Distrito ${pr[CAMPOS.distrito]}`,'Distrito',6,lat,lon,`${pr[CAMPOS.canton]}, ${pr[CAMPOS.provincia]}`,dato,g,a]);});
     NDIST=feats.length;distOK=NDIST>0;
   }catch(e){distOK=false;console.warn('No se cargó la capa de distritos:',e);}
 }
-function saveLocal(){if(state.mode!=='daily')return;ls.set(KEY,JSON.stringify({results:state.results.map(r=>({i:r.i,guess:r.guess})),sent:state.sent||false}));}
+function saveLocal(){if(state.mode!=='daily')return;ls.set(KEY,JSON.stringify({results:state.results.map(r=>({i:r.i,guess:r.guess})),sent:state.sent||false,cur:state.cur??null}));}
 function setModeButtons(m){[['mDaily','daily'],['mPractice','practice'],['mBoard','board']].forEach(([id,v])=>document.getElementById(id).setAttribute('aria-pressed',m===v));}
-function renderWho(){document.getElementById('who').innerHTML=jugador?`Jugador: <b>${esc(jugador)}</b> <button class="linkbtn" id="chName">cambiar</button>`:'';
+function renderWho(){document.getElementById('who').innerHTML=jugador?`Jugador: <b>${esc(jugador)}</b>${state&&state.phase==='ask'?'':' <button class="linkbtn" id="chName">cambiar</button>'}`:'';
   const b=document.getElementById('chName');if(b)b.onclick=()=>askName(true);}
 
+function practiceRounds(){return PRACTICA.map(n=>{const i=PLACES.findIndex(p=>p[0]===n);if(i<0)console.warn('Práctica: no existe el lugar',n);return i;}).filter(i=>i>=0);}
 function start(mode){
-  setModeButtons(mode);
+  stopTimer();setModeButtons(mode);
   const daily=mode==='daily';
-  const rounds=daily?pickRounds(YMD,RONDAS):pickRounds(Math.floor(Math.random()*1e9),RONDAS.map(()=>0));
-  state={mode,rounds,results:[],pending:null,phase:'ask',sent:false};
+  const rounds=daily?pickRounds(YMD,RONDAS):practiceRounds();
+  state={mode,rounds,results:[],pending:null,phase:'ask',sent:false,cur:null};
   if(daily){let s=null;try{s=JSON.parse(ls.get(KEY)||'null');}catch(e){}
-    if(s&&s.results){s.results.forEach(r=>{if(PLACES[r.i])state.results.push(makeResult(r.i,r.guess));});state.sent=!!s.sent;}
-    if(state.results.length>=NR)state.phase='summary';
+    if(s&&s.results){s.results.forEach(r=>{if(PLACES[r.i])state.results.push(makeResult(r.i,r.guess));});state.sent=!!s.sent;
+      // si la página se cerró o recargó durante una pregunta, esa pregunta cuenta como tiempo agotado
+      if(s.cur===state.results.length&&state.results.length<NR()){state.results.push(makeResult(rounds[s.cur],null));state.phase='reveal';saveLocal();}}
+    if(state.results.length>=NR())state.phase='summary';
     if(!jugador&&state.results.length===0)state.phase='name';}
-  document.getElementById('dayLabel').textContent=daily?`N.º ${dayNo} · ${now.toLocaleDateString('es-CR',{day:'numeric',month:'short'})}`:'práctica libre';
-  if(state.phase==='summary')fitAll();else setView(FULL);
+  document.getElementById('dayLabel').textContent=daily?`N.º ${dayNo} · ${now.toLocaleDateString('es-CR',{day:'numeric',month:'short'})}`:`práctica · ${rounds.length} lugares`;
+  if(state.phase==='summary')fitAll();else if(state.phase==='reveal')fitTo(resPts(state.results[state.results.length-1]));else setView(FULL);
   render();
+  if(state.phase==='ask')startTimer();
   if(state.phase==='summary'&&daily&&!state.sent)submit();
 }
+
+// ---------- cronómetro ----------
+let timer={id:null,deadline:0};
+function startTimer(){stopTimer();timer.deadline=Date.now()+TIEMPO*1000;
+  if(state.mode==='daily'){state.cur=state.results.length;saveLocal();}
+  document.getElementById('mTimer').hidden=false;timer.id=setInterval(tick,100);tick();}
+function stopTimer(){if(timer.id)clearInterval(timer.id);timer.id=null;const m=document.getElementById('mTimer');if(m)m.hidden=true;}
+function tick(){if(!timer.id)return;const left=Math.max(0,timer.deadline-Date.now()),f=left/(TIEMPO*1000),cls=f<=.3?'urgent':f<=.6?'warn':'';
+  const box=document.getElementById('tBox'),m=document.getElementById('mTimer');
+  if(box){box.className='timer '+cls;document.getElementById('tFill').style.transform=`scaleX(${f})`;document.getElementById('tSecs').textContent=(left/1000).toFixed(1)+' s';}
+  m.className='mtimer '+cls;document.getElementById('mBar').style.transform=`scaleX(${f})`;
+  if(left<=0){stopTimer();timeUp();}}
+function timeUp(){if(!state||state.phase!=='ask')return;
+  if(state.pending){confirmGuess();return;}
+  const res=makeResult(state.rounds[state.results.length],null);state.results.push(res);state.cur=null;state.phase='reveal';saveLocal();fitTo(resPts(res));render();}
 function fitAll(){fitTo(state.results.flatMap(resPts));}
 function onMapTap(cx,cy){if(!state||state.phase!=='ask')return;const s=toSvg(cx,cy),[lon,lat]=IP(s.x,s.y);state.pending=[lat,lon];drawMarks();render();}
-function confirmGuess(){const i=state.rounds[state.results.length];const res=makeResult(i,state.pending);state.results.push(res);state.pending=null;state.phase='reveal';saveLocal();
+function confirmGuess(){if(!state.pending||state.phase!=='ask')return;stopTimer();const i=state.rounds[state.results.length];const res=makeResult(i,state.pending);state.results.push(res);state.pending=null;state.cur=null;state.phase='reveal';saveLocal();
   fitTo(resPts(res));render();}
-function resPts(r){const pts=[P(r.guess[1],r.guess[0]),P(r.place[4],r.place[3])];if(r.place[7])polysOf(r.place[7]).forEach(poly=>poly[0].forEach(c=>pts.push(P(c[0],c[1]))));return pts;}
-function next(){if(state.results.length>=NR){state.phase='summary';fitAll();render();if(state.mode==='daily')submit();}else{state.phase='ask';setView(FULL);render();}}
+function resPts(r){const pts=[P(r.place[4],r.place[3])];if(r.guess)pts.push(P(r.guess[1],r.guess[0]));if(r.place[7])polysOf(r.place[7]).forEach(poly=>poly[0].forEach(c=>pts.push(P(c[0],c[1]))));return pts;}
+function next(){if(state.results.length>=NR()){state.phase='summary';fitAll();render();if(state.mode==='daily')submit();}else{state.phase='ask';setView(FULL);render();startTimer();}}
 const total=()=>state.results.reduce((a,r)=>a+r.pts,0);
-function shareText(){return `Ubicá Costa Rica ${state.mode==='daily'?'N.º '+dayNo:'(práctica)'}\n${state.results.map(r=>sq(r.pts)).join('')}  ${total()}/${MAXP}`;}
+function shareText(){return `Ubicá Costa Rica ${state.mode==='daily'?'N.º '+dayNo:'(práctica)'}\n${state.results.map(r=>r.timeout?'⬛':sq(r.pts)).join('')}  ${total()}/${MAXP()}`;}
 
 // ---------- tabla de posiciones (Google Sheets) ----------
 let sendStatus='';
@@ -358,7 +399,7 @@ async function submit(){
   if(!jugador){sendStatus='noname';render();return;}
   sendStatus='sending';render();
   const body={accion:'guardar',fecha:FECHA,reto:dayNo,jugador,puntos:total(),
-    detalle:state.results.map(r=>`${r.place[0]}: ${kmTxt(r.km)} km, ${r.pts}`).join(' | ')};
+    detalle:state.results.map(r=>`${r.place[0]}: ${r.timeout?'sin respuesta':r.inside?'dentro':kmTxt(r.km)+' km'}, ${r.pts}`).join(' | ')};
   try{
     const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
     const j=await res.json();
@@ -369,17 +410,17 @@ async function submit(){
 }
 let boardTab='hoy',boardData=null,boardErr='';
 async function openBoard(){
-  setModeButtons('board');state={...(state||{}),prev:state,phase:'board'};boardData=null;boardErr='';render();
+  stopTimer();setModeButtons('board');state={...(state||{}),prev:state,phase:'board'};boardData=null;boardErr='';render();
   if(!SCRIPT_URL){boardErr='La tabla de posiciones todavía no está configurada (falta SCRIPT_URL en index.html).';render();return;}
   try{const res=await fetch(`${SCRIPT_URL}?accion=tabla&fecha=${FECHA}`);boardData=await res.json();if(!boardData.ok)boardErr=boardData.mensaje||'Error al leer la hoja.';}
   catch(e){boardErr='No se pudo conectar con la hoja de posiciones.';}
   if(state.phase==='board')render();
 }
-function askName(change){state={...(state||{mode:'daily'}),prev:state,phase:'name',changing:!!change};render();}
+function askName(change){stopTimer();state={...(state||{mode:'daily'}),prev:state,phase:'name',changing:!!change};render();}
 
 // ---------- panel ----------
-function pipsHTML(){return `<div class="pips">${RONDAS.map((_,k)=>{const r=state.results[k];const cur=k===state.results.length&&state.phase==='ask';return `<span class="pip ${r?band(r.pts):cur?'on':''}"></span>`;}).join('')}</div>`;}
-function foot(){return `<div class="foot">Puntaje por lugar: 100 a 1 km o menos (o dentro del distrito), 50 cerca de 25 km. Coordenadas en CRTM05. Banco: ${PLACES.length-NDIST} lugares y ${NDIST} distritos.</div>`;}
+function pipsHTML(){return `<div class="pips">${state.rounds.map((_,k)=>{const r=state.results[k];const cur=k===state.results.length&&state.phase==='ask';return `<span class="pip ${r?band(r.pts):cur?'on':''}"></span>`;}).join('')}</div>`;}
+function foot(){return `<div class="foot">${TIEMPO} s por lugar. Puntaje: 100 a 1 km o menos (o dentro del distrito), 50 cerca de 25 km. Coordenadas en CRTM05. Banco: ${PLACES.length-NDIST} lugares y ${NDIST} distritos.</div>`;}
 function statusHTML(){if(state.mode!=='daily')return '';
   const m={'':'', sending:'<div class="status">Enviando tu puntaje…</div>', ok:'<div class="status ok">Puntaje registrado en la tabla de posiciones.</div>',
     dup:'<div class="status ok">Ya habías registrado el reto de hoy.</div>', nocfg:'<div class="status">La tabla de posiciones no está configurada; el puntaje queda solo en este navegador.</div>',
@@ -412,29 +453,30 @@ function render(){renderWho();const pn=document.getElementById('panel');
     document.getElementById('bBack').onclick=()=>start('daily');
     return;}
   const n=state.results.length;
-  const head=`${pipsHTML()}<div class="meta"><span>Lugar ${Math.min(n+(state.phase==='ask'?1:0),NR)} de ${NR}</span><span class="score">${total()} pts</span></div>`;
+  const head=`${pipsHTML()}<div class="meta"><span>Lugar ${Math.min(n+(state.phase==='ask'?1:0),NR())} de ${NR()}</span><span class="score">${total()} pts</span></div>`;
   if(state.phase==='ask'){const p=PLACES[state.rounds[n]];
-    pn.innerHTML=`${head}<div class="ask"><span class="lead">Tocá el mapa donde está</span><h2>${esc(p[0])}</h2>
+    pn.innerHTML=`${head}<div class="timer" id="tBox"><span class="track"><span class="fill" id="tFill"></span></span><span class="secs" id="tSecs">${TIEMPO.toFixed(1)} s</span></div>
+      <div class="ask"><span class="lead">Tocá el mapa donde está</span><h2>${esc(p[0])}</h2>
       <div class="tags">${p[1]===DIFF[p[2]]?'':`<span class="tag">${esc(p[1])}</span>`}<span class="tag d${p[2]}">${DIFF[p[2]]}</span></div>
       <div class="ctx">${p[7]?'Marcá cualquier punto dentro del distrito · ':''}${esc(p[5])}</div></div>
       <button class="btn" id="bOk" ${state.pending?'':'disabled'}>${state.pending?'Confirmar ubicación':'Tocá el mapa para marcar'}</button>
-      <p class="hint">Arrastrá para mover, rueda o pellizco para acercar. Podés cambiar la marca antes de confirmar.</p>${foot()}`;
-    document.getElementById('bOk').onclick=confirmGuess;}
-  else if(state.phase==='reveal'){const r=state.results[n-1],p=r.place;const g=crtm05(r.guess[0],r.guess[1]),t=crtm05(p[3],p[4]);
+      <p class="hint">Tenés ${TIEMPO} segundos. Si se acaba el tiempo, cuenta la marca que hayas puesto; sin marca, el lugar vale 0.</p>${foot()}`;
+    document.getElementById('bOk').onclick=confirmGuess;tick();}
+  else if(state.phase==='reveal'){const r=state.results[n-1],p=r.place;const g=r.guess?crtm05(r.guess[0],r.guess[1]):null,t=crtm05(p[3],p[4]);
     pn.innerHTML=`${head}<div class="ask"><span class="lead">${esc(p[1])} · ${esc(p[5])}</span><h2>${esc(p[0])}</h2></div>
-      <div class="result"><div class="big"><span class="pts" style="color:var(--${{g:'good',m:'mid',b:'bad'}[band(r.pts)]})">+${r.pts}</span><span class="km">${r.inside?'¡Dentro del distrito!':(p[7]?`a ${kmTxt(r.km)} km del límite`:`a ${kmTxt(r.km)} km`)}</span></div>
+      <div class="result"><div class="big"><span class="pts" style="color:var(--${{g:'good',m:'mid',b:'bad'}[band(r.pts)]})">+${r.pts}</span><span class="km${r.timeout?' out':''}">${r.timeout?'Se acabó el tiempo':r.inside?'¡Dentro del distrito!':(p[7]?`a ${kmTxt(r.km)} km del límite`:`a ${kmTxt(r.km)} km`)}</span></div>
       <p class="fact">${esc(p[6])}</p>
-      <div class="crtm"><b class="k1">Tu marca</b><span>E ${fmt(g[0])} · N ${fmt(g[1])}</span><b class="k2">Real</b><span>E ${fmt(t[0])} · N ${fmt(t[1])}</span></div></div>
-      <button class="btn" id="bNext">${n>=NR?'Ver resultado':'Siguiente lugar'}</button>${foot()}`;
+      <div class="crtm"><b class="k1">Tu marca</b><span>${g?`E ${fmt(g[0])} · N ${fmt(g[1])}`:'sin marca'}</span><b class="k2">Real</b><span>E ${fmt(t[0])} · N ${fmt(t[1])}</span></div></div>
+      <button class="btn" id="bNext">${n>=NR()?'Ver resultado':'Siguiente lugar'}</button>${foot()}`;
     const b=document.getElementById('bNext');b.onclick=next;b.focus({preventScroll:true});}
   else{const st=shareText();
     pn.innerHTML=`${pipsHTML()}<div class="meta"><span>${state.mode==='daily'?'Reto del día completo':'Práctica completa'}</span><span>${state.mode==='daily'?'N.º '+dayNo:''}</span></div>
-      <div class="total">${total()}<span> / ${MAXP}</span></div>
+      <div class="total">${total()}<span> / ${MAXP()}</span></div>
       ${statusHTML()}
-      <table class="sum"><tbody>${state.results.map(r=>`<tr><td>${esc(r.place[0])}<br><span class="hint">${esc(r.place[1])}${r.place[1]===DIFF[r.place[2]]?'':' · '+DIFF[r.place[2]]}</span></td><td class="n">${kmTxt(r.km)} km<br><b>${r.pts}</b></td></tr>`).join('')}</tbody></table>
+      <table class="sum"><tbody>${state.results.map(r=>`<tr><td>${esc(r.place[0])}<br><span class="hint">${esc(r.place[1])}${r.place[1]===DIFF[r.place[2]]?'':' · '+DIFF[r.place[2]]}</span></td><td class="n">${r.timeout?'<span class="out">sin respuesta</span>':r.inside?'dentro':kmTxt(r.km)+' km'}<br><b>${r.pts}</b></td></tr>`).join('')}</tbody></table>
       <div class="share" id="shareBox">${esc(st)}</div>
       <button class="btn" id="bCopy">Copiar resultado</button>
-      <div class="row"><button class="btn ghost" id="bBoard">Ver posiciones</button><button class="btn ghost" id="bAgain">${state.mode==='daily'?'Práctica':'Otra práctica'}</button></div>
+      <div class="row"><button class="btn ghost" id="bBoard">Ver posiciones</button><button class="btn ghost" id="bAgain">${state.mode==='daily'?'Práctica':'Repetir práctica'}</button></div>
       ${state.mode==='daily'?'<p class="hint">Mañana hay un reto nuevo. Todos juegan los mismos lugares cada día.</p>':''}${foot()}`;
     document.getElementById('bCopy').onclick=async e=>{try{await navigator.clipboard.writeText(st);e.target.textContent='Copiado';}catch(err){const s=getSelection(),rg=document.createRange();rg.selectNodeContents(document.getElementById('shareBox'));s.removeAllRanges();s.addRange(rg);e.target.textContent='Texto seleccionado: copialo';}};
     document.getElementById('bAgain').onclick=()=>start('practice');
