@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ubicá Costa Rica</title>
+<meta name="description" content="Juego diario de geografía de Costa Rica: ubicá 10 lugares en el mapa.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+
+/* Layout: one-screen app — map sheet fills the screen, a docked panel holds the prompt and results (right on desktop, below on phones). Colors borrow from topographic sheets: pale sea, sage land, magenta overprint for the player's mark. */
+:root{
+  --sea:#c9d9df; --land:#dfe6d3; --land-edge:#7f8c78; --border:#a7b29c;
+  --paper:#f3f5ef; --panel:#fbfcf8; --ink:#1d272b; --muted:#5d6b66; --rule:#d6dccf;
+  --accent:#a3215f; --accent-soft:#f3dbe7; --truth:#1d4e89; --grid:rgba(29,78,137,.13);
+  --good:#2f7a4b; --mid:#b07a12; --bad:#a83a2c;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --sea:#14232b; --land:#26322b; --land-edge:#7b8a7a; --border:#4c5a4f;
+  --paper:#111a1e; --panel:#172126; --ink:#e7ece6; --muted:#9aa8a2; --rule:#2c3a3a;
+  --accent:#f06aa8; --accent-soft:#3d2030; --truth:#7fb2ee; --grid:rgba(127,178,238,.12);
+  --good:#6cc28d; --mid:#e0b04f; --bad:#ec7b6b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --sea:#14232b; --land:#26322b; --land-edge:#7b8a7a; --border:#4c5a4f;
+  --paper:#111a1e; --panel:#172126; --ink:#e7ece6; --muted:#9aa8a2; --rule:#2c3a3a;
+  --accent:#f06aa8; --accent-soft:#3d2030; --truth:#7fb2ee; --grid:rgba(127,178,238,.12);
+  --good:#6cc28d; --mid:#e0b04f; --bad:#ec7b6b; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--rule);background:var(--panel)}
+.brand{font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:.01em;line-height:1;display:flex;align-items:baseline;gap:8px}
+.brand small{font-family:var(--f-mono);font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.04em}
+.modes{margin-left:auto;display:flex;border:1px solid var(--rule);border-radius:999px;padding:2px;background:var(--paper)}
+.modes button{font:600 13px var(--f-body);border:0;background:transparent;color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer}
+.modes button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.main{min-height:0;display:grid;grid-template-columns:1fr 360px}
+.mapwrap{position:relative;min-width:0;min-height:0;background:var(--sea);overflow:hidden;touch-action:none;cursor:crosshair}
+.mapwrap.dragging{cursor:grabbing}
+svg#map{width:100%;height:100%;display:block}
+.prov{fill:var(--land);stroke:var(--border);stroke-width:.8;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.coast{fill:none;stroke:var(--land-edge);stroke-width:1.4;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.nb{fill:var(--land);opacity:.45;stroke:var(--border);stroke-width:.8;vector-effect:non-scaling-stroke}
+.lake{fill:var(--sea);stroke:var(--border);stroke-width:.6;vector-effect:non-scaling-stroke}
+.grat{stroke:var(--grid);stroke-width:1;vector-effect:non-scaling-stroke;fill:none}
+.gl{fill:var(--truth);opacity:.55;font-family:var(--f-mono)}
+.nbl{fill:var(--muted);font-family:var(--f-display);font-weight:600;letter-spacing:.2em;opacity:.7}
+.guess{fill:var(--accent);stroke:var(--panel);vector-effect:non-scaling-stroke;stroke-width:2}
+.truth{fill:var(--truth);stroke:var(--panel);vector-effect:non-scaling-stroke;stroke-width:2}
+.link{stroke:var(--ink);stroke-dasharray:5 4;stroke-width:1.5;vector-effect:non-scaling-stroke;opacity:.7}
+.mlabel{font-family:var(--f-display);font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--panel);stroke-linejoin:round}
+.zoom{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));bottom:12px;display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--panel)}
+.zoom button{width:38px;height:36px;border:0;background:transparent;color:var(--ink);font:600 18px var(--f-body);cursor:pointer}
+.zoom button+button{border-top:1px solid var(--rule)}
+.coords{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:10px;font:11px/1.35 var(--f-mono);color:var(--muted);background:color-mix(in srgb,var(--panel) 85%,transparent);padding:5px 8px;border-radius:6px;pointer-events:none;font-variant-numeric:tabular-nums}
+.panel{background:var(--panel);border-left:1px solid var(--rule);overflow:auto;padding-block:18px;padding-left:20px;padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px;min-width:0}
+.pips{display:flex;gap:6px}
+.pip{flex:1;height:6px;border-radius:3px;background:var(--rule)}
+.pip.on{background:var(--ink)}
+.pip.g{background:var(--good)}.pip.m{background:var(--mid)}.pip.b{background:var(--bad)}
+.meta{display:flex;justify-content:space-between;align-items:baseline;font:500 12px var(--f-mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.score{font-variant-numeric:tabular-nums}
+.ask{display:flex;flex-direction:column;gap:6px}
+.ask .lead{font-size:13px;color:var(--muted)}
+.ask h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:38px;line-height:1;text-wrap:balance}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font:600 11px var(--f-body);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:4px;border:1px solid var(--rule);color:var(--muted)}
+.tag.d1{color:var(--good);border-color:currentColor}.tag.d2{color:var(--mid);border-color:currentColor}.tag.d3{color:var(--bad);border-color:currentColor}
+.ctx{font-size:14px;color:var(--muted)}
+.btn{font:700 15px var(--f-body);padding:12px 16px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer;width:100%}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--rule)}
+:focus-visible{outline:2px solid var(--truth);outline-offset:2px}
+.result{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--rule);padding-top:14px}
+.big{display:flex;align-items:baseline;gap:14px}
+.big .pts{font-family:var(--f-display);font-weight:700;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.big .km{font:500 14px var(--f-mono);color:var(--muted)}
+.fact{margin:0;font-size:15px}
+.crtm{font:12px/1.5 var(--f-mono);color:var(--muted);display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-variant-numeric:tabular-nums}
+.crtm b{font-weight:500}
+.crtm .k1{color:var(--accent)}.crtm .k2{color:var(--truth)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+table.sum{width:100%;border-collapse:collapse;font-size:14px}
+table.sum td{padding:7px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+table.sum td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:10px}
+.share{font:13px/1.5 var(--f-mono);background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:10px;white-space:pre-wrap;user-select:all}
+.total{font-family:var(--f-display);font-weight:700;font-size:56px;line-height:1}
+.total span{font-size:22px;color:var(--muted)}
+.foot{margin-top:auto;font-size:12px;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px}
+.row{display:flex;gap:8px}
+@media (max-width:820px){
+  .main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
+  .panel{border-left:0;border-top:1px solid var(--rule);max-height:46vh;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));gap:10px}
+  .ask h2{font-size:30px}
+  .foot{display:none}
+  .brand{font-size:22px}
+}
+@media (prefers-reduced-motion:no-preference){.drop{animation:drop .25s ease-out}@keyframes drop{from{opacity:0}to{opacity:1}}}
+
+.tag.d4{color:var(--accent);border-color:currentColor}
+.pips{flex-wrap:wrap}
+.pip{min-width:14px}
+.who{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.who b{color:var(--ink);font-weight:600}
+.linkbtn{font:600 13px var(--f-body);background:none;border:0;color:var(--truth);cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:600;font-size:14px}
+.field input{font:16px var(--f-body);padding:10px 12px;border-radius:8px;border:1px solid var(--rule);background:var(--paper);color:var(--ink)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--rule)}
+.tabs button{font:600 14px var(--f-body);background:none;border:0;border-bottom:2px solid transparent;padding:6px 10px;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+table.board{width:100%;border-collapse:collapse;font-size:14px}
+table.board th{font:500 11px var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:6px 0;border-bottom:1px solid var(--rule)}
+table.board td{padding:7px 0;border-bottom:1px solid var(--rule)}
+table.board .n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+table.board tr.me td{color:var(--accent);font-weight:600}
+.status{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--paper);border:1px solid var(--rule)}
+.status.ok{border-color:var(--good);color:var(--good)}.status.err{border-color:var(--bad);color:var(--bad)}
+@media (max-width:820px){.who{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">Ubicá Costa Rica <small id="dayLabel"></small></div>
+    <div class="who" id="who"></div>
+    <div class="modes" role="group" aria-label="Vista">
+      <button id="mDaily" aria-pressed="true">Reto diario</button>
+      <button id="mPractice" aria-pressed="false">Práctica</button>
+      <button id="mBoard" aria-pressed="false">Posiciones</button>
+    </div>
+  </header>
+  <div class="main">
+    <div class="mapwrap" id="mapwrap">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa de Costa Rica sin nombres">
+        <g id="gBase"></g><g id="gGrat"></g><g id="gMarks"></g>
+      </svg>
+      <div class="coords" id="coords">CRTM05 · mové el cursor sobre el mapa</div>
+      <div class="zoom"><button id="zIn" aria-label="Acercar">+</button><button id="zOut" aria-label="Alejar">−</button><button id="zReset" aria-label="Ver todo el país">⤢</button></div>
+    </div>
+    <aside class="panel" id="panel" aria-live="polite"></aside>
+  </div>
+</div>
+
+<script src="mapa.js"></script>
+<script src="lugares.js"></script>
+<script>
+// =================== CONFIGURACIÓN ===================
+// Pegá aquí la URL de la aplicación web de Apps Script (termina en /exec).
+// Si queda vacía, el juego funciona pero sin tabla de posiciones.
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwusm0u5WWvsfJwF9Otw8pIeD2G5mQV4AgSGdEzGOWmYIdGEVSxD0anf7SA8I0VQtjPcA/exec";
+// Nivel de cada una de las 10 rondas del reto diario (1 Fácil, 2 Media, 3 Difícil, 4 Poblado).
+const RONDAS = [1,1,1,2,2,2,3,3,4,4];
+// Primer día del reto (año, mes-1, día): sirve para numerar los retos.
+const INICIO = new Date(2026, 9, 20);
+// =====================================================
+
+const PLACES = window.PLACES, GEO = window.GEO, NR = RONDAS.length, MAXP = NR*100;
+const DIFF=['','Fácil','Media','Difícil','Poblado'];
+
+// ---------- proyección de pantalla ----------
+const K=100, LON0=-86.1, LAT0=11.35, CX=Math.cos(9.6*Math.PI/180);
+const P=(lon,lat)=>[(lon-LON0)*CX*K,(LAT0-lat)*K];
+const IP=(x,y)=>[x/(CX*K)+LON0, LAT0-y/K];
+const FULL={x:0,y:0,w:(-82.35-LON0)*CX*K,h:(LAT0-7.9)*K};
+
+// ---------- CRTM05 (TM, GRS80, MC -84°, k0 0.9999, FE 500 000) ----------
+function crtm05(lat,lon){
+  const a=6378137,f=1/298.257222101,k0=0.9999,e2=f*(2-f),ep2=e2/(1-e2),d=Math.PI/180;
+  const ph=lat*d,lm=(lon+84)*d,N=a/Math.sqrt(1-e2*Math.sin(ph)**2),T=Math.tan(ph)**2,C=ep2*Math.cos(ph)**2,A=Math.cos(ph)*lm;
+  const M=a*((1-e2/4-3*e2*e2/64-5*e2**3/256)*ph-(3*e2/8+3*e2*e2/32+45*e2**3/1024)*Math.sin(2*ph)+(15*e2*e2/256+45*e2**3/1024)*Math.sin(4*ph)-(35*e2**3/3072)*Math.sin(6*ph));
+  const E=500000+k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120);
+  const Nn=k0*(M+N*Math.tan(ph)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+  return [E,Nn];
+}
+const fmt=n=>String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function hav(a,b){const R=6371,d=Math.PI/180,dl=(b[1]-a[1])*d,dn=(b[0]-a[0])*d;
+  const h=Math.sin(dn/2)**2+Math.cos(a[0]*d)*Math.cos(b[0]*d)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+const scoreFor=km=>km<=1?100:Math.max(0,Math.round(100*Math.exp(-(km-1)/35)));
+const band=p=>p>=70?'g':p>=35?'m':'b';
+const sq=p=>p>=70?'🟩':p>=35?'🟨':'🟥';
+const kmTxt=km=>km<10?km.toFixed(1):String(Math.round(km));
+
+// ---------- mapa base ----------
+const NS='http://www.w3.org/2000/svg';
+const svg=document.getElementById('map'),gB=document.getElementById('gBase'),gG=document.getElementById('gGrat'),gM=document.getElementById('gMarks');
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.appendChild(e);return e;}
+function ringsD(geom){const polys=geom.type==='Polygon'?[geom.coordinates]:geom.coordinates;let d='';
+  for(const poly of polys)for(const ring of poly){ring.forEach((c,i)=>{const [x,y]=P(c[0],c[1]);d+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);});d+='Z';}return d;}
+GEO.nb.forEach(f=>el('path',{d:ringsD(f.geometry),class:'nb'},gB));
+GEO.prov.forEach(f=>el('path',{d:ringsD(f.geometry),class:'prov'},gB));
+GEO.lakes.forEach(f=>el('path',{d:ringsD(f.geometry),class:'lake'},gB));
+[["NICARAGUA",-85.0,11.2],["PANAMÁ",-82.55,8.75],["OCÉANO PACÍFICO",-85.4,8.6],["MAR CARIBE",-83.05,10.95]].forEach(([t,lo,la])=>{const [x,y]=P(lo,la);el('text',{x,y,class:'nbl','font-size':9,'text-anchor':'middle'},gB).textContent=t;});
+let view={...FULL};
+function drawGrat(){gG.innerHTML='';const fs=view.w*0.018;
+  for(let lo=-86;lo<=-82.5;lo+=0.5){const [x,y1]=P(lo,LAT0),[,y2]=P(lo,7.9);el('line',{x1:x,x2:x,y1,y2,class:'grat'},gG);
+    el('text',{x:x+fs*.3,y:view.y+fs*1.2,class:'gl','font-size':fs},gG).textContent=Math.abs(lo).toFixed(1)+'°O';}
+  for(let la=8;la<=11.5;la+=0.5){const [x1,y]=P(LON0,la),[x2]=P(-82.35,la);el('line',{x1,x2,y1:y,y2:y,class:'grat'},gG);
+    el('text',{x:view.x+fs*.4,y:y-fs*.3,class:'gl','font-size':fs},gG).textContent=la.toFixed(1)+'°N';}}
+function applyView(){svg.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);drawGrat();drawMarks();}
+function setView(v){view={...v};applyView();}
+function toSvg(cx,cy){const pt=svg.createSVGPoint();pt.x=cx;pt.y=cy;return pt.matrixTransform(svg.getScreenCTM().inverse());}
+function zoomAt(cx,cy,f){const p=toSvg(cx,cy);const w=Math.min(FULL.w*1.25,Math.max(FULL.w/40,view.w*f)),r=w/view.w;
+  view={x:p.x-(p.x-view.x)*r,y:p.y-(p.y-view.y)*r,w,h:view.h*r};applyView();}
+function fitTo(pts){if(!pts.length)return setView(FULL);const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+  let w=Math.max(Math.max(...xs)-Math.min(...xs),FULL.w/8)*1.6,h=Math.max(Math.max(...ys)-Math.min(...ys),FULL.h/8)*1.6;
+  const ar=FULL.w/FULL.h;if(w/h<ar)w=h*ar;else h=w/ar;const cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
+  setView({x:cx-w/2,y:cy-h/2,w,h});}
+
+const wrap=document.getElementById('mapwrap'),coordsEl=document.getElementById('coords');
+const ptrs=new Map();let drag=null,pinch=null,moved=false;
+wrap.addEventListener('pointerdown',e=>{if(e.target.closest('.zoom'))return;wrap.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;
+  if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,v:{...view}};
+  if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y)};drag=null;}});
+wrap.addEventListener('pointermove',e=>{
+  const s=toSvg(e.clientX,e.clientY),[lon,lat]=IP(s.x,s.y);
+  if(lat>7.9&&lat<11.35&&lon>-86.1&&lon<-82.35){const [E,N]=crtm05(lat,lon);coordsEl.style.whiteSpace='pre';coordsEl.textContent=`CRTM05  E ${fmt(E)}  N ${fmt(N)}\n${lat.toFixed(4)}°N  ${Math.abs(lon).toFixed(4)}°O`;}
+  if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&ptrs.size===2){const [a,b]=[...ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(Math.abs(d-pinch.d)>2){zoomAt((a.x+b.x)/2,(a.y+b.y)/2,pinch.d/d);pinch.d=d;moved=true;}return;}
+  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>6){moved=true;wrap.classList.add('dragging');}
+    if(moved){const r=svg.getBoundingClientRect(),sc=Math.max(view.w/r.width,view.h/r.height);view={...view,x:drag.v.x-dx*sc,y:drag.v.y-dy*sc};svg.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);drawGrat();}}});
+function endPtr(e){if(!ptrs.has(e.pointerId))return;const wasDrag=moved;ptrs.delete(e.pointerId);wrap.classList.remove('dragging');
+  if(ptrs.size<2)pinch=null;if(ptrs.size===0){if(!wasDrag&&e.type==='pointerup')onMapTap(e.clientX,e.clientY);drag=null;}}
+wrap.addEventListener('pointerup',endPtr);wrap.addEventListener('pointercancel',endPtr);
+wrap.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY>0?1.2:1/1.2);},{passive:false});
+const rectC=()=>{const r=svg.getBoundingClientRect();return[r.left+r.width/2,r.top+r.height/2];};
+document.getElementById('zIn').onclick=()=>zoomAt(...rectC(),1/1.5);
+document.getElementById('zOut').onclick=()=>zoomAt(...rectC(),1.5);
+document.getElementById('zReset').onclick=()=>setView(FULL);
+
+// ---------- marcas ----------
+function drawMarks(){gM.innerHTML='';if(!state)return;const r=view.w*0.009,fs=view.w*0.022;
+  const items=state.phase==='summary'?state.results:(state.phase==='reveal'?[state.results[state.results.length-1]]:[]);
+  items.forEach(res=>{const g=P(res.guess[1],res.guess[0]),t=P(res.place[4],res.place[3]);
+    el('line',{x1:g[0],y1:g[1],x2:t[0],y2:t[1],class:'link'},gM);
+    el('circle',{cx:g[0],cy:g[1],r,class:'guess'},gM);el('circle',{cx:t[0],cy:t[1],r:r*1.1,class:'truth drop'},gM);
+    if(state.phase==='reveal')el('text',{x:t[0]+r*1.6,y:t[1]+fs*.35,class:'mlabel','font-size':fs,'stroke-width':fs*.25},gM).textContent=res.place[0];});
+  if(state.phase==='ask'&&state.pending){const g=P(state.pending[1],state.pending[0]);
+    el('circle',{cx:g[0],cy:g[1],r:r*2.2,fill:'none',stroke:'var(--accent)','stroke-width':2,'vector-effect':'non-scaling-stroke'},gM);
+    el('circle',{cx:g[0],cy:g[1],r,class:'guess'},gM);}}
+
+// ---------- almacenamiento local ----------
+const ls={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const pad=n=>String(n).padStart(2,'0');
+const now=new Date(),FECHA=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+const YMD=Number(FECHA.replace(/-/g,''));
+const dayNo=Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate())-INICIO)/864e5)+1;
+const KEY='ubica-cr-'+FECHA;
+let jugador=ls.get('ubica-cr-jugador')||'';
+
+// ---------- selección determinística del reto ----------
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function hashSeed(n){let h=2166136261;for(const c of String(n)){h=Math.imul(h^c.charCodeAt(0),16777619);}return h>>>0;}
+function pickRounds(seed,mix){const r=rng(hashSeed(seed));for(let k=0;k<5;k++)r();const used=new Set(),out=[];
+  for(const d of mix){let pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i)&&(!d||PLACES[i][2]===d));
+    if(!pool.length)pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i));
+    const cats=new Set(out.map(i=>PLACES[i][1]));const fresh=pool.filter(i=>!cats.has(PLACES[i][1]));if(fresh.length&&d!==4)pool=fresh;
+    const i=pool[Math.floor(r()*pool.length)];used.add(i);out.push(i);}
+  return out;}
+
+// ---------- estado ----------
+let state=null;
+function makeResult(i,guess){const p=PLACES[i],km=hav(guess,[p[3],p[4]]);return{i,place:p,guess,km,pts:scoreFor(km)};}
+function saveLocal(){if(state.mode!=='daily')return;ls.set(KEY,JSON.stringify({results:state.results.map(r=>({i:r.i,guess:r.guess})),sent:state.sent||false}));}
+function setModeButtons(m){[['mDaily','daily'],['mPractice','practice'],['mBoard','board']].forEach(([id,v])=>document.getElementById(id).setAttribute('aria-pressed',m===v));}
+function renderWho(){document.getElementById('who').innerHTML=jugador?`Jugador: <b>${esc(jugador)}</b> <button class="linkbtn" id="chName">cambiar</button>`:'';
+  const b=document.getElementById('chName');if(b)b.onclick=()=>askName(true);}
+
+function start(mode){
+  setModeButtons(mode);
+  const daily=mode==='daily';
+  const rounds=daily?pickRounds(YMD,RONDAS):pickRounds(Math.floor(Math.random()*1e9),RONDAS.map(()=>0));
+  state={mode,rounds,results:[],pending:null,phase:'ask',sent:false};
+  if(daily){let s=null;try{s=JSON.parse(ls.get(KEY)||'null');}catch(e){}
+    if(s&&s.results){s.results.forEach(r=>{if(PLACES[r.i])state.results.push(makeResult(r.i,r.guess));});state.sent=!!s.sent;}
+    if(state.results.length>=NR)state.phase='summary';
+    if(!jugador&&state.results.length===0)state.phase='name';}
+  document.getElementById('dayLabel').textContent=daily?`N.º ${dayNo} · ${now.toLocaleDateString('es-CR',{day:'numeric',month:'short'})}`:'práctica libre';
+  if(state.phase==='summary')fitAll();else setView(FULL);
+  render();
+  if(state.phase==='summary'&&daily&&!state.sent)submit();
+}
+function fitAll(){fitTo(state.results.flatMap(r=>[P(r.guess[1],r.guess[0]),P(r.place[4],r.place[3])]));}
+function onMapTap(cx,cy){if(!state||state.phase!=='ask')return;const s=toSvg(cx,cy),[lon,lat]=IP(s.x,s.y);state.pending=[lat,lon];drawMarks();render();}
+function confirmGuess(){const i=state.rounds[state.results.length];const res=makeResult(i,state.pending);state.results.push(res);state.pending=null;state.phase='reveal';saveLocal();
+  fitTo([P(res.guess[1],res.guess[0]),P(res.place[4],res.place[3])]);render();}
+function next(){if(state.results.length>=NR){state.phase='summary';fitAll();render();if(state.mode==='daily')submit();}else{state.phase='ask';setView(FULL);render();}}
+const total=()=>state.results.reduce((a,r)=>a+r.pts,0);
+function shareText(){return `Ubicá Costa Rica ${state.mode==='daily'?'N.º '+dayNo:'(práctica)'}\n${state.results.map(r=>sq(r.pts)).join('')}  ${total()}/${MAXP}`;}
+
+// ---------- tabla de posiciones (Google Sheets) ----------
+let sendStatus='';
+async function submit(){
+  if(!SCRIPT_URL){sendStatus='nocfg';render();return;}
+  if(!jugador){sendStatus='noname';render();return;}
+  sendStatus='sending';render();
+  const body={accion:'guardar',fecha:FECHA,reto:dayNo,jugador,puntos:total(),
+    detalle:state.results.map(r=>`${r.place[0]}: ${kmTxt(r.km)} km, ${r.pts}`).join(' | ')};
+  try{
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+    const j=await res.json();
+    if(j.ok||j.error==='duplicado'){state.sent=true;saveLocal();sendStatus=j.ok?'ok':'dup';}
+    else sendStatus='err:'+(j.mensaje||j.error||'respuesta inesperada');
+  }catch(e){sendStatus='err:no se pudo conectar con la hoja';}
+  if(state.phase==='summary')render();
+}
+let boardTab='hoy',boardData=null,boardErr='';
+async function openBoard(){
+  setModeButtons('board');state={...(state||{}),prev:state,phase:'board'};boardData=null;boardErr='';render();
+  if(!SCRIPT_URL){boardErr='La tabla de posiciones todavía no está configurada (falta SCRIPT_URL en index.html).';render();return;}
+  try{const res=await fetch(`${SCRIPT_URL}?accion=tabla&fecha=${FECHA}`);boardData=await res.json();if(!boardData.ok)boardErr=boardData.mensaje||'Error al leer la hoja.';}
+  catch(e){boardErr='No se pudo conectar con la hoja de posiciones.';}
+  if(state.phase==='board')render();
+}
+function askName(change){state={...(state||{mode:'daily'}),prev:state,phase:'name',changing:!!change};render();}
+
+// ---------- panel ----------
+function pipsHTML(){return `<div class="pips">${RONDAS.map((_,k)=>{const r=state.results[k];const cur=k===state.results.length&&state.phase==='ask';return `<span class="pip ${r?band(r.pts):cur?'on':''}"></span>`;}).join('')}</div>`;}
+function foot(){return `<div class="foot">Puntaje por lugar: 100 a 1 km o menos, 50 cerca de 25 km. Coordenadas en CRTM05. ${PLACES.length} lugares en el banco; coordenadas aproximadas.</div>`;}
+function statusHTML(){if(state.mode!=='daily')return '';
+  const m={'':'', sending:'<div class="status">Enviando tu puntaje…</div>', ok:'<div class="status ok">Puntaje registrado en la tabla de posiciones.</div>',
+    dup:'<div class="status ok">Ya habías registrado el reto de hoy.</div>', nocfg:'<div class="status">La tabla de posiciones no está configurada; el puntaje queda solo en este navegador.</div>',
+    noname:'<div class="status err">Falta tu nombre para registrar el puntaje.</div>'};
+  if(sendStatus.startsWith('err:'))return `<div class="status err">No se registró: ${esc(sendStatus.slice(4))}. <button class="linkbtn" id="bRetry">Reintentar</button></div>`;
+  return m[sendStatus]||'';}
+function render(){renderWho();const pn=document.getElementById('panel');
+  if(state.phase==='name'){
+    pn.innerHTML=`<div class="ask"><span class="lead">${state.changing?'Cambiar nombre':'Antes de empezar'}</span><h2>¿Cómo te llamás?</h2></div>
+      <form id="fName" class="field"><label for="inName">Nombre para la tabla de posiciones</label>
+      <input id="inName" maxlength="40" autocomplete="name" value="${esc(jugador)}" placeholder="Ej.: Ana Mora" required>
+      <span class="hint">Usá siempre el mismo nombre para acumular tus puntos del mes.</span>
+      <button class="btn" type="submit">Guardar y jugar</button></form>${foot()}`;
+    const f=document.getElementById('fName');document.getElementById('inName').focus();
+    f.onsubmit=e=>{e.preventDefault();const v=document.getElementById('inName').value.trim().replace(/\s+/g,' ');if(!v)return;jugador=v;ls.set('ubica-cr-jugador',v);start('daily');};
+    return;}
+  if(state.phase==='board'){
+    let body='<p class="hint">Cargando posiciones…</p>';
+    if(boardErr)body=`<div class="status err">${esc(boardErr)}</div>`;
+    else if(boardData){
+      if(boardTab==='hoy'){const rows=boardData.hoy||[];
+        body=rows.length?`<table class="board"><thead><tr><th>#</th><th>Jugador</th><th class="n">Puntos</th></tr></thead><tbody>${rows.map((r,k)=>`<tr class="${r.jugador.toLowerCase()===jugador.toLowerCase()?'me':''}"><td>${k+1}</td><td>${esc(r.jugador)}</td><td class="n">${r.puntos}</td></tr>`).join('')}</tbody></table>`:'<p class="hint">Nadie ha completado el reto de hoy todavía.</p>';}
+      else{const rows=boardData.mes||[];
+        body=rows.length?`<table class="board"><thead><tr><th>#</th><th>Jugador</th><th class="n">Días</th><th class="n">Total</th></tr></thead><tbody>${rows.map((r,k)=>`<tr class="${r.jugador.toLowerCase()===jugador.toLowerCase()?'me':''}"><td>${k+1}</td><td>${esc(r.jugador)}</td><td class="n">${r.dias}</td><td class="n">${r.total}</td></tr>`).join('')}</tbody></table>`:'<p class="hint">Todavía no hay puntajes este mes.</p>';}}
+    pn.innerHTML=`<div class="ask"><span class="lead">Unidad de Cartografía</span><h2>Posiciones</h2></div>
+      <div class="tabs" role="tablist"><button role="tab" id="tHoy" aria-selected="${boardTab==='hoy'}">Hoy</button><button role="tab" id="tMes" aria-selected="${boardTab==='mes'}">Este mes</button></div>
+      ${body}<button class="btn ghost" id="bBack">Volver al juego</button>${foot()}`;
+    document.getElementById('tHoy').onclick=()=>{boardTab='hoy';render();};
+    document.getElementById('tMes').onclick=()=>{boardTab='mes';render();};
+    document.getElementById('bBack').onclick=()=>start('daily');
+    return;}
+  const n=state.results.length;
+  const head=`${pipsHTML()}<div class="meta"><span>Lugar ${Math.min(n+(state.phase==='ask'?1:0),NR)} de ${NR}</span><span class="score">${total()} pts</span></div>`;
+  if(state.phase==='ask'){const p=PLACES[state.rounds[n]];
+    pn.innerHTML=`${head}<div class="ask"><span class="lead">Tocá el mapa donde está</span><h2>${esc(p[0])}</h2>
+      <div class="tags">${p[1]===DIFF[p[2]]?'':`<span class="tag">${esc(p[1])}</span>`}<span class="tag d${p[2]}">${DIFF[p[2]]}</span></div>
+      <div class="ctx">${p[1]==='Distrito'?'Marcá el centro del distrito · ':''}${esc(p[5])}</div></div>
+      <button class="btn" id="bOk" ${state.pending?'':'disabled'}>${state.pending?'Confirmar ubicación':'Tocá el mapa para marcar'}</button>
+      <p class="hint">Arrastrá para mover, rueda o pellizco para acercar. Podés cambiar la marca antes de confirmar.</p>${foot()}`;
+    document.getElementById('bOk').onclick=confirmGuess;}
+  else if(state.phase==='reveal'){const r=state.results[n-1],p=r.place;const g=crtm05(r.guess[0],r.guess[1]),t=crtm05(p[3],p[4]);
+    pn.innerHTML=`${head}<div class="ask"><span class="lead">${esc(p[1])} · ${esc(p[5])}</span><h2>${esc(p[0])}</h2></div>
+      <div class="result"><div class="big"><span class="pts" style="color:var(--${{g:'good',m:'mid',b:'bad'}[band(r.pts)]})">+${r.pts}</span><span class="km">a ${kmTxt(r.km)} km</span></div>
+      <p class="fact">${esc(p[6])}</p>
+      <div class="crtm"><b class="k1">Tu marca</b><span>E ${fmt(g[0])} · N ${fmt(g[1])}</span><b class="k2">Real</b><span>E ${fmt(t[0])} · N ${fmt(t[1])}</span></div></div>
+      <button class="btn" id="bNext">${n>=NR?'Ver resultado':'Siguiente lugar'}</button>${foot()}`;
+    const b=document.getElementById('bNext');b.onclick=next;b.focus({preventScroll:true});}
+  else{const st=shareText();
+    pn.innerHTML=`${pipsHTML()}<div class="meta"><span>${state.mode==='daily'?'Reto del día completo':'Práctica completa'}</span><span>${state.mode==='daily'?'N.º '+dayNo:''}</span></div>
+      <div class="total">${total()}<span> / ${MAXP}</span></div>
+      ${statusHTML()}
+      <table class="sum"><tbody>${state.results.map(r=>`<tr><td>${esc(r.place[0])}<br><span class="hint">${esc(r.place[1])}${r.place[1]===DIFF[r.place[2]]?'':' · '+DIFF[r.place[2]]}</span></td><td class="n">${kmTxt(r.km)} km<br><b>${r.pts}</b></td></tr>`).join('')}</tbody></table>
+      <div class="share" id="shareBox">${esc(st)}</div>
+      <button class="btn" id="bCopy">Copiar resultado</button>
+      <div class="row"><button class="btn ghost" id="bBoard">Ver posiciones</button><button class="btn ghost" id="bAgain">${state.mode==='daily'?'Práctica':'Otra práctica'}</button></div>
+      ${state.mode==='daily'?'<p class="hint">Mañana hay un reto nuevo. Todos juegan los mismos lugares cada día.</p>':''}${foot()}`;
+    document.getElementById('bCopy').onclick=async e=>{try{await navigator.clipboard.writeText(st);e.target.textContent='Copiado';}catch(err){const s=getSelection(),rg=document.createRange();rg.selectNodeContents(document.getElementById('shareBox'));s.removeAllRanges();s.addRange(rg);e.target.textContent='Texto seleccionado: copialo';}};
+    document.getElementById('bAgain').onclick=()=>start('practice');
+    document.getElementById('bBoard').onclick=openBoard;
+    const rt=document.getElementById('bRetry');if(rt)rt.onclick=submit;}
+  drawMarks();}
+
+document.getElementById('mDaily').onclick=()=>start('daily');
+document.getElementById('mPractice').onclick=()=>start('practice');
+document.getElementById('mBoard').onclick=openBoard;
+start('daily');
+</script>
+</body>
+</html>
