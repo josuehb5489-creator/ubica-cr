@@ -361,7 +361,9 @@ function start(mode){
       // si la página se cerró o recargó durante una pregunta, esa pregunta cuenta como tiempo agotado
       if(s.cur===state.results.length&&state.results.length<NR()){state.results.push(makeResult(rounds[s.cur],null));state.phase='reveal';saveLocal();}}
     if(state.results.length>=NR())state.phase='summary';
-    if(!jugador&&state.results.length===0)state.phase='name';}
+    if(!jugador&&state.results.length===0)state.phase='name';
+    // el reto diario no arranca solo: se muestra una pantalla de inicio y el cronómetro empieza al pulsar "Iniciar"
+    if(state.phase==='ask')state.phase='intro';}
   document.getElementById('dayLabel').textContent=daily?`N.º ${dayNo} · ${now.toLocaleDateString('es-CR',{day:'numeric',month:'short'})}`:`práctica · ${rounds.length} lugares`;
   if(state.phase==='summary')fitAll();else if(state.phase==='reveal')fitTo(resPts(state.results[state.results.length-1]));else setView(FULL);
   render();
@@ -453,6 +455,19 @@ function render(){renderWho();const pn=document.getElementById('panel');
     document.getElementById('bBack').onclick=()=>start('daily');
     return;}
   const n=state.results.length;
+  if(state.phase==='intro'){const nuevo=n===0;
+    pn.innerHTML=`${pipsHTML()}<div class="meta"><span>Reto N.º ${dayNo}</span><span class="score">${total()} pts</span></div>
+      <div class="ask"><span class="lead">${nuevo?'Reto del día':'Reto en curso'}</span><h2>${nuevo?`${NR()} lugares, ${TIEMPO} segundos cada uno`:`Vas en el lugar ${n+1} de ${NR()}`}</h2></div>
+      <p class="fact">${nuevo?`Cada lugar tiene ${TIEMPO} segundos. El cronómetro empieza cuando pulsás <b>Iniciar reto diario</b>, no antes. Si es tu primera vez, probá antes la práctica de ${PRACTICA.length} lugares: no cuenta para la tabla.`:`El cronómetro del siguiente lugar empieza cuando pulsás <b>Continuar</b>.`}</p>
+      <ul class="hint" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+        <li>Tocá el mapa para marcar y confirmá. Si se acaba el tiempo, cuenta la marca puesta; sin marca, vale 0.</li>
+        <li>Una vez iniciado, recargar la página o salir durante una pregunta la cuenta como tiempo agotado.</li>
+        <li>Solo se registra un intento por persona y por día.</li></ul>
+      <button class="btn" id="bStart">${nuevo?'Iniciar reto diario':'Continuar'}</button>
+      ${nuevo?`<button class="btn ghost" id="bPractice">Hacer la práctica primero</button>`:''}${foot()}`;
+    document.getElementById('bStart').onclick=()=>{state.phase='ask';setView(FULL);render();startTimer();};
+    const bp=document.getElementById('bPractice');if(bp)bp.onclick=()=>start('practice');
+    drawMarks();return;}
   const head=`${pipsHTML()}<div class="meta"><span>Lugar ${Math.min(n+(state.phase==='ask'?1:0),NR())} de ${NR()}</span><span class="score">${total()} pts</span></div>`;
   if(state.phase==='ask'){const p=PLACES[state.rounds[n]];
     pn.innerHTML=`${head}<div class="timer" id="tBox"><span class="track"><span class="fill" id="tFill"></span></span><span class="secs" id="tSecs">${TIEMPO.toFixed(1)} s</span></div>
@@ -475,11 +490,13 @@ function render(){renderWho();const pn=document.getElementById('panel');
       ${statusHTML()}
       <table class="sum"><tbody>${state.results.map(r=>`<tr><td>${esc(r.place[0])}<br><span class="hint">${esc(r.place[1])}${r.place[1]===DIFF[r.place[2]]?'':' · '+DIFF[r.place[2]]}</span></td><td class="n">${r.timeout?'<span class="out">sin respuesta</span>':r.inside?'dentro':kmTxt(r.km)+' km'}<br><b>${r.pts}</b></td></tr>`).join('')}</tbody></table>
       <div class="share" id="shareBox">${esc(st)}</div>
-      <button class="btn" id="bCopy">Copiar resultado</button>
+      <button class="btn${state.mode==='practice'?' ghost':''}" id="bCopy">Copiar resultado</button>
+      ${state.mode==='practice'?'<button class="btn" id="bDaily">Ir al reto diario</button>':''}
       <div class="row"><button class="btn ghost" id="bBoard">Ver posiciones</button><button class="btn ghost" id="bAgain">${state.mode==='daily'?'Práctica':'Repetir práctica'}</button></div>
       ${state.mode==='daily'?'<p class="hint">Mañana hay un reto nuevo. Todos juegan los mismos lugares cada día.</p>':''}${foot()}`;
     document.getElementById('bCopy').onclick=async e=>{try{await navigator.clipboard.writeText(st);e.target.textContent='Copiado';}catch(err){const s=getSelection(),rg=document.createRange();rg.selectNodeContents(document.getElementById('shareBox'));s.removeAllRanges();s.addRange(rg);e.target.textContent='Texto seleccionado: copialo';}};
     document.getElementById('bAgain').onclick=()=>start('practice');
+    const bd=document.getElementById('bDaily');if(bd)bd.onclick=()=>start('daily');
     document.getElementById('bBoard').onclick=openBoard;
     const rt=document.getElementById('bRetry');if(rt)rt.onclick=submit;}
   drawMarks();}
