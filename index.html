@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ubicá Costa Rica</title>
-<meta name="description" content="Juego diario de geografía de Costa Rica: ubicá 10 lugares en el mapa.">
+<title>Ubicá Costa Rica · INEC</title>
+<meta name="description" content="Juego diario de geografía de Costa Rica: ubicá 15 lugares en el mapa.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -35,7 +35,7 @@ body{margin:0}
   --good:#6cc28d; --mid:#e0b04f; --bad:#ec7b6b; color-scheme:dark}
 html,body{height:100%}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
-.app{height:100%;display:grid;grid-template-rows:auto 1fr;}
+.app{height:100%;display:grid;grid-template-rows:auto auto 1fr;}
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--rule);background:var(--panel)}
 .brand{font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:.01em;line-height:1;display:flex;align-items:baseline;gap:8px}
 .brand small{font-family:var(--f-mono);font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.04em}
@@ -106,6 +106,11 @@ table.sum td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:t
 @media (prefers-reduced-motion:no-preference){.drop{animation:drop .25s ease-out}@keyframes drop{from{opacity:0}to{opacity:1}}}
 
 .tag.d4{color:var(--accent);border-color:currentColor}
+.tag.d5{color:var(--truth);border-color:currentColor}
+.inst{display:flex;flex-wrap:wrap;gap:4px 0;align-items:center;background:var(--ink);color:var(--paper);font:600 12px var(--f-body);letter-spacing:.12em;text-transform:uppercase;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.inst span+span::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--accent);margin:0 10px;vertical-align:middle}
+.inst span:first-child{font-family:var(--f-display);font-size:15px;letter-spacing:.18em}
+.distpoly{fill:var(--truth);fill-opacity:.18;stroke:var(--truth);stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 .pips{flex-wrap:wrap}
 .pip{min-width:14px}
 .who{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
@@ -129,6 +134,7 @@ table.board tr.me td{color:var(--accent);font-weight:600}
 </head>
 <body>
 <div class="app">
+  <div class="inst"><span>INEC</span><span>Unidad de Cartografía</span><span>Comisión TUC</span></div>
   <header>
     <div class="brand">Ubicá Costa Rica <small id="dayLabel"></small></div>
     <div class="who" id="who"></div>
@@ -157,14 +163,20 @@ table.board tr.me td{color:var(--accent);font-weight:600}
 // Pegá aquí la URL de la aplicación web de Apps Script (termina en /exec).
 // Si queda vacía, el juego funciona pero sin tabla de posiciones.
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwusm0u5WWvsfJwF9Otw8pIeD2G5mQV4AgSGdEzGOWmYIdGEVSxD0anf7SA8I0VQtjPcA/exec";
-// Nivel de cada una de las 10 rondas del reto diario (1 Fácil, 2 Media, 3 Difícil, 4 Poblado).
-const RONDAS = [1,1,1,2,2,2,3,3,4,4];
+// Composición de las 15 rondas del reto diario:
+//   1 Fácil · 2 Media · 3 Difícil · 4 Poblado · "PN" Parque nacional · "D" Distrito
+const RONDAS = [1,1,1,2,2,2,"PN","PN",3,3,"D","D","D",4,4];
+// Capa de distritos (GeoJSON en WGS84) y nombres de sus campos.
+// Para usar la capa oficial del INEC, exportala desde QGIS y ajustá estos nombres (ver LEEME.md).
+const ARCHIVO_DISTRITOS = "distritos.geojson";
+const CAMPOS = { provincia: "provincia", canton: "canton", distrito: "distrito" };
 // Primer día del reto (año, mes-1, día): sirve para numerar los retos.
 const INICIO = new Date(2026, 9, 20);
 // =====================================================
 
-const PLACES = window.PLACES, GEO = window.GEO, NR = RONDAS.length, MAXP = NR*100;
-const DIFF=['','Fácil','Media','Difícil','Poblado'];
+const PLACES = window.PLACES.slice(), GEO = window.GEO, NR = RONDAS.length, MAXP = NR*100;
+const DIFF=['','Fácil','Media','Difícil','Poblado','Distrito'];
+let NDIST=0, distOK=false;
 
 // ---------- proyección de pantalla ----------
 const K=100, LON0=-86.1, LAT0=11.35, CX=Math.cos(9.6*Math.PI/180);
@@ -241,7 +253,9 @@ document.getElementById('zReset').onclick=()=>setView(FULL);
 function drawMarks(){gM.innerHTML='';if(!state)return;const r=view.w*0.009,fs=view.w*0.022;
   const items=state.phase==='summary'?state.results:(state.phase==='reveal'?[state.results[state.results.length-1]]:[]);
   items.forEach(res=>{const g=P(res.guess[1],res.guess[0]),t=P(res.place[4],res.place[3]);
-    el('line',{x1:g[0],y1:g[1],x2:t[0],y2:t[1],class:'link'},gM);
+    if(res.place[7]){el('path',{d:ringsD(res.place[7]),class:'distpoly'},gM);
+      if(!res.inside){const q=P(res.near[1],res.near[0]);el('line',{x1:g[0],y1:g[1],x2:q[0],y2:q[1],class:'link'},gM);}}
+    else el('line',{x1:g[0],y1:g[1],x2:t[0],y2:t[1],class:'link'},gM);
     el('circle',{cx:g[0],cy:g[1],r,class:'guess'},gM);el('circle',{cx:t[0],cy:t[1],r:r*1.1,class:'truth drop'},gM);
     if(state.phase==='reveal')el('text',{x:t[0]+r*1.6,y:t[1]+fs*.35,class:'mlabel','font-size':fs,'stroke-width':fs*.25},gM).textContent=res.place[0];});
   if(state.phase==='ask'&&state.pending){const g=P(state.pending[1],state.pending[0]);
@@ -254,22 +268,61 @@ const pad=n=>String(n).padStart(2,'0');
 const now=new Date(),FECHA=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
 const YMD=Number(FECHA.replace(/-/g,''));
 const dayNo=Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate())-INICIO)/864e5)+1;
-const KEY='ubica-cr-'+FECHA;
+const KEY='ubica-cr-v2-'+FECHA;
 let jugador=ls.get('ubica-cr-jugador')||'';
 
 // ---------- selección determinística del reto ----------
 function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function hashSeed(n){let h=2166136261;for(const c of String(n)){h=Math.imul(h^c.charCodeAt(0),16777619);}return h>>>0;}
+function fitsToken(p,d){if(!d)return true;if(d==='PN')return p[1]==='Parque nacional';if(d==='D')return p[2]===5;return p[2]===d&&p[1]!=='Parque nacional';}
 function pickRounds(seed,mix){const r=rng(hashSeed(seed));for(let k=0;k<5;k++)r();const used=new Set(),out=[];
-  for(const d of mix){let pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i)&&(!d||PLACES[i][2]===d));
+  for(let d of mix){if(d==='D'&&!distOK)d=3;
+    let pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i)&&fitsToken(PLACES[i],d));
     if(!pool.length)pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i));
-    const cats=new Set(out.map(i=>PLACES[i][1]));const fresh=pool.filter(i=>!cats.has(PLACES[i][1]));if(fresh.length&&d!==4)pool=fresh;
+    const cats=new Set(out.map(i=>PLACES[i][1]));const fresh=pool.filter(i=>!cats.has(PLACES[i][1]));if(fresh.length&&typeof d==='number'&&d<4)pool=fresh;
     const i=pool[Math.floor(r()*pool.length)];used.add(i);out.push(i);}
   return out;}
 
 // ---------- estado ----------
 let state=null;
-function makeResult(i,guess){const p=PLACES[i],km=hav(guess,[p[3],p[4]]);return{i,place:p,guess,km,pts:scoreFor(km)};}
+function makeResult(i,guess){const p=PLACES[i];
+  if(p[7]){const inside=inGeom(guess,p[7]);const nr=inside?null:nearestOnGeom(guess,p[7]);const km=inside?0:hav(guess,nr);
+    return{i,place:p,guess,km,pts:inside?100:scoreFor(km),inside,near:nr};}
+  const km=hav(guess,[p[3],p[4]]);return{i,place:p,guess,km,pts:scoreFor(km)};}
+
+// ---------- geometría de distritos ----------
+function polysOf(g){return g.type==='Polygon'?[g.coordinates]:g.coordinates;}
+function inRing(pt,ring){const x=pt[1],y=pt[0];let c=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const [xi,yi]=ring[i],[xj,yj]=ring[j];
+  if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;}
+function inGeom(pt,g){return polysOf(g).some(poly=>inRing(pt,poly[0])&&!poly.slice(1).some(h=>inRing(pt,h)));}
+function nearestOnGeom(pt,g){const kx=Math.cos(pt[0]*Math.PI/180);let best=null,bd=Infinity;
+  for(const poly of polysOf(g))for(const ring of poly)for(let i=1;i<ring.length;i++){
+    const ax=ring[i-1][0]*kx,ay=ring[i-1][1],bx=ring[i][0]*kx,by=ring[i][1],px=pt[1]*kx,py=pt[0];
+    const dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy;let u=L?((px-ax)*dx+(py-ay)*dy)/L:0;u=Math.max(0,Math.min(1,u));
+    const qx=ax+u*dx,qy=ay+u*dy,d=(qx-px)**2+(qy-py)**2;if(d<bd){bd=d;best=[qy,qx/kx];}}
+  return best;}
+function ringArea(r){let a=0;for(let i=1;i<r.length;i++)a+=r[i-1][0]*r[i][1]-r[i][0]*r[i-1][1];return Math.abs(a)/2;}
+function areaKm2(g){let a=0;for(const poly of polysOf(g)){const lat=poly[0][0][1]*Math.PI/180;const f=111.32*Math.cos(lat)*110.57;
+  a+=ringArea(poly[0])*f;for(const h of poly.slice(1))a-=ringArea(h)*f;}return a;}
+// Punto representativo: el centro del tramo interior más ancho, buscado en varias líneas horizontales del polígono mayor
+function repPoint(g){const poly=polysOf(g).reduce((a,b)=>ringArea(b[0])>ringArea(a[0])?b:a);
+  let y0=Infinity,y1=-Infinity;for(const [,y] of poly[0]){y0=Math.min(y0,y);y1=Math.max(y1,y);}
+  let best=null,bw=-1;
+  for(const f of [.5,.4,.6,.3,.7,.45,.55,.2,.8]){const y=y0+(y1-y0)*f,xs=[];
+    for(const ring of poly)for(let i=1;i<ring.length;i++){const [xa,ya]=ring[i-1],[xb,yb]=ring[i];if((ya>y)!==(yb>y))xs.push(xa+(y-ya)*(xb-xa)/(yb-ya));}
+    xs.sort((a,b)=>a-b);for(let k=0;k+1<xs.length;k+=2){const w=xs[k+1]-xs[k];if(w>bw){bw=w;best=[y,(xs[k]+xs[k+1])/2];}}}
+  return best||[poly[0][0][1],poly[0][0][0]];}
+async function loadDistritos(){
+  try{const res=await fetch(ARCHIVO_DISTRITOS);if(!res.ok)throw new Error(res.status);const fc=await res.json();
+    const feats=fc.features.filter(f=>f.geometry&&/Polygon/.test(f.geometry.type));
+    const porCanton={};feats.forEach(f=>{const k=f.properties[CAMPOS.provincia]+'|'+f.properties[CAMPOS.canton];porCanton[k]=(porCanton[k]||0)+1;});
+    feats.forEach(f=>{const pr=f.properties,g=f.geometry,[lat,lon]=repPoint(g);
+      const a=areaKm2(g),n=porCanton[pr[CAMPOS.provincia]+'|'+pr[CAMPOS.canton]];
+      const dato=`Mide cerca de ${a<10?a.toFixed(1):Math.round(a)} km². El cantón de ${pr[CAMPOS.canton]} tiene ${n} distrito${n===1?'':'s'}.`;
+      PLACES.push([`Distrito ${pr[CAMPOS.distrito]}`,'Distrito',5,lat,lon,`${pr[CAMPOS.canton]}, ${pr[CAMPOS.provincia]}`,dato,g]);});
+    NDIST=feats.length;distOK=NDIST>0;
+  }catch(e){distOK=false;console.warn('No se cargó la capa de distritos:',e);}
+}
 function saveLocal(){if(state.mode!=='daily')return;ls.set(KEY,JSON.stringify({results:state.results.map(r=>({i:r.i,guess:r.guess})),sent:state.sent||false}));}
 function setModeButtons(m){[['mDaily','daily'],['mPractice','practice'],['mBoard','board']].forEach(([id,v])=>document.getElementById(id).setAttribute('aria-pressed',m===v));}
 function renderWho(){document.getElementById('who').innerHTML=jugador?`Jugador: <b>${esc(jugador)}</b> <button class="linkbtn" id="chName">cambiar</button>`:'';
@@ -289,10 +342,11 @@ function start(mode){
   render();
   if(state.phase==='summary'&&daily&&!state.sent)submit();
 }
-function fitAll(){fitTo(state.results.flatMap(r=>[P(r.guess[1],r.guess[0]),P(r.place[4],r.place[3])]));}
+function fitAll(){fitTo(state.results.flatMap(resPts));}
 function onMapTap(cx,cy){if(!state||state.phase!=='ask')return;const s=toSvg(cx,cy),[lon,lat]=IP(s.x,s.y);state.pending=[lat,lon];drawMarks();render();}
 function confirmGuess(){const i=state.rounds[state.results.length];const res=makeResult(i,state.pending);state.results.push(res);state.pending=null;state.phase='reveal';saveLocal();
-  fitTo([P(res.guess[1],res.guess[0]),P(res.place[4],res.place[3])]);render();}
+  fitTo(resPts(res));render();}
+function resPts(r){const pts=[P(r.guess[1],r.guess[0]),P(r.place[4],r.place[3])];if(r.place[7])polysOf(r.place[7]).forEach(poly=>poly[0].forEach(c=>pts.push(P(c[0],c[1]))));return pts;}
 function next(){if(state.results.length>=NR){state.phase='summary';fitAll();render();if(state.mode==='daily')submit();}else{state.phase='ask';setView(FULL);render();}}
 const total=()=>state.results.reduce((a,r)=>a+r.pts,0);
 function shareText(){return `Ubicá Costa Rica ${state.mode==='daily'?'N.º '+dayNo:'(práctica)'}\n${state.results.map(r=>sq(r.pts)).join('')}  ${total()}/${MAXP}`;}
@@ -325,7 +379,7 @@ function askName(change){state={...(state||{mode:'daily'}),prev:state,phase:'nam
 
 // ---------- panel ----------
 function pipsHTML(){return `<div class="pips">${RONDAS.map((_,k)=>{const r=state.results[k];const cur=k===state.results.length&&state.phase==='ask';return `<span class="pip ${r?band(r.pts):cur?'on':''}"></span>`;}).join('')}</div>`;}
-function foot(){return `<div class="foot">Puntaje por lugar: 100 a 1 km o menos, 50 cerca de 25 km. Coordenadas en CRTM05. ${PLACES.length} lugares en el banco; coordenadas aproximadas.</div>`;}
+function foot(){return `<div class="foot">Puntaje por lugar: 100 a 1 km o menos (o dentro del distrito), 50 cerca de 25 km. Coordenadas en CRTM05. Banco: ${PLACES.length-NDIST} lugares y ${NDIST} distritos.</div>`;}
 function statusHTML(){if(state.mode!=='daily')return '';
   const m={'':'', sending:'<div class="status">Enviando tu puntaje…</div>', ok:'<div class="status ok">Puntaje registrado en la tabla de posiciones.</div>',
     dup:'<div class="status ok">Ya habías registrado el reto de hoy.</div>', nocfg:'<div class="status">La tabla de posiciones no está configurada; el puntaje queda solo en este navegador.</div>',
@@ -362,13 +416,13 @@ function render(){renderWho();const pn=document.getElementById('panel');
   if(state.phase==='ask'){const p=PLACES[state.rounds[n]];
     pn.innerHTML=`${head}<div class="ask"><span class="lead">Tocá el mapa donde está</span><h2>${esc(p[0])}</h2>
       <div class="tags">${p[1]===DIFF[p[2]]?'':`<span class="tag">${esc(p[1])}</span>`}<span class="tag d${p[2]}">${DIFF[p[2]]}</span></div>
-      <div class="ctx">${p[1]==='Distrito'?'Marcá el centro del distrito · ':''}${esc(p[5])}</div></div>
+      <div class="ctx">${p[7]?'Marcá cualquier punto dentro del distrito · ':''}${esc(p[5])}</div></div>
       <button class="btn" id="bOk" ${state.pending?'':'disabled'}>${state.pending?'Confirmar ubicación':'Tocá el mapa para marcar'}</button>
       <p class="hint">Arrastrá para mover, rueda o pellizco para acercar. Podés cambiar la marca antes de confirmar.</p>${foot()}`;
     document.getElementById('bOk').onclick=confirmGuess;}
   else if(state.phase==='reveal'){const r=state.results[n-1],p=r.place;const g=crtm05(r.guess[0],r.guess[1]),t=crtm05(p[3],p[4]);
     pn.innerHTML=`${head}<div class="ask"><span class="lead">${esc(p[1])} · ${esc(p[5])}</span><h2>${esc(p[0])}</h2></div>
-      <div class="result"><div class="big"><span class="pts" style="color:var(--${{g:'good',m:'mid',b:'bad'}[band(r.pts)]})">+${r.pts}</span><span class="km">a ${kmTxt(r.km)} km</span></div>
+      <div class="result"><div class="big"><span class="pts" style="color:var(--${{g:'good',m:'mid',b:'bad'}[band(r.pts)]})">+${r.pts}</span><span class="km">${r.inside?'¡Dentro del distrito!':(p[7]?`a ${kmTxt(r.km)} km del límite`:`a ${kmTxt(r.km)} km`)}</span></div>
       <p class="fact">${esc(p[6])}</p>
       <div class="crtm"><b class="k1">Tu marca</b><span>E ${fmt(g[0])} · N ${fmt(g[1])}</span><b class="k2">Real</b><span>E ${fmt(t[0])} · N ${fmt(t[1])}</span></div></div>
       <button class="btn" id="bNext">${n>=NR?'Ver resultado':'Siguiente lugar'}</button>${foot()}`;
@@ -391,7 +445,8 @@ function render(){renderWho();const pn=document.getElementById('panel');
 document.getElementById('mDaily').onclick=()=>start('daily');
 document.getElementById('mPractice').onclick=()=>start('practice');
 document.getElementById('mBoard').onclick=openBoard;
-start('daily');
+document.getElementById('panel').innerHTML='<p class="hint">Cargando mapa de distritos…</p>';
+loadDistritos().then(()=>start('daily'));
 </script>
 </body>
 </html>

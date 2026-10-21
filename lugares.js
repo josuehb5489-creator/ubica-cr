@@ -1,6 +1,8 @@
 // Banco de lugares de Ubicá Costa Rica.
 // Formato: [nombre, categoría, nivel, latitud, longitud, contexto, dato]
 // Nivel: 1 Fácil · 2 Media · 3 Difícil · 4 Poblado (muy difícil)
+// Los distritos no van aquí: se toman de distritos.geojson.
+// La categoría "Parque nacional" alimenta las rondas de parques.
 // Coordenadas WGS84 aproximadas: revisar contra capas oficiales antes de un uso formal.
 // Para agregar un lugar, copiá una línea, cambiá los valores y respetá las comas.
 window.PLACES = [
@@ -26,9 +28,9 @@ window.PLACES = [
  ["Dominical", "Playa", 2, 9.252, -83.858, "Osa, Puntarenas", "Playa de oleaje fuerte sobre la Costanera Sur."],
  ["Uvita", "Playa", 2, 9.153, -83.757, "Osa, Puntarenas", "Frente a ella está el tómbolo con forma de cola de ballena del PN Marino Ballena."],
  ["Playa Conchal", "Playa", 2, 10.403, -85.812, "Santa Cruz, Guanacaste", "Su arena está formada en gran parte por conchas trituradas."],
- ["PN Manuel Antonio", "Área protegida", 1, 9.392, -84.137, "Quepos, Puntarenas", "Uno de los parques más visitados del país, aunque es de los más pequeños."],
- ["Estación Sirena, Corcovado", "Área protegida", 2, 8.48, -83.59, "Península de Osa, Puntarenas", "Es el corazón del Parque Nacional Corcovado, en la península de Osa."],
- ["Tortuguero", "Área protegida", 1, 10.543, -83.503, "Pococí, Limón", "Una de las playas de anidación de tortuga verde más importantes del hemisferio occidental."],
+ ["PN Manuel Antonio", "Parque nacional", 1, 9.392, -84.137, "Quepos, Puntarenas", "Uno de los parques más visitados del país, aunque es de los más pequeños."],
+ ["PN Corcovado, estación Sirena", "Parque nacional", 2, 8.48, -83.59, "Península de Osa, Puntarenas", "Es el corazón del Parque Nacional Corcovado, en la península de Osa."],
+ ["PN Tortuguero", "Parque nacional", 1, 10.543, -83.503, "Pococí, Limón", "Una de las playas de anidación de tortuga verde más importantes del hemisferio occidental."],
  ["Casona de Santa Rosa", "Patrimonio", 2, 10.837, -85.618, "La Cruz, Guanacaste", "Escenario de la Batalla de Santa Rosa, el 20 de marzo de 1856."],
  ["Reserva Monteverde", "Área protegida", 1, 10.3, -84.795, "Monteverde, Puntarenas", "Bosque nuboso ligado a la comunidad cuáquera que llegó en 1951."],
  ["Isla San Lucas", "Isla", 2, 9.94, -84.9, "Golfo de Nicoya", "Funcionó como presidio de 1873 a 1991."],
@@ -69,15 +71,7 @@ window.PLACES = [
  ["Orosi", "Ciudad", 2, 9.797, -83.856, "Paraíso, Cartago", "Conserva una de las iglesias coloniales en uso más antiguas del país."],
  ["San Vito", "Ciudad", 3, 8.82, -82.971, "Coto Brus, Puntarenas", "Fundada por colonos italianos en la década de 1950."],
  ["Caño Negro", "Área protegida", 3, 10.89, -84.78, "Los Chiles, Alajuela", "Humedal Ramsar de la llanura norte, refugio de aves migratorias."],
- ["PN Palo Verde", "Área protegida", 3, 10.35, -85.35, "Bagaces, Guanacaste", "Humedal estacional junto al río Tempisque, clave para aves acuáticas."],
- ["Distrito Carmen", "Distrito", 2, 9.935, -84.075, "Central, San José", "Uno de los cuatro distritos del casco central de San José."],
- ["Distrito Telire", "Distrito", 3, 9.4, -83.05, "Talamanca, Limón", "Es el distrito más extenso de Costa Rica."],
- ["Distrito Cóbano", "Distrito", 3, 9.68, -85.11, "Puntarenas, Puntarenas", "Distrito puntarenense en la punta sur de la península de Nicoya."],
- ["Distrito Sierpe", "Distrito", 3, 8.86, -83.47, "Osa, Puntarenas", "Junto a los manglares de Térraba-Sierpe, el humedal más grande del país."],
- ["Distrito La Fortuna", "Distrito", 1, 10.468, -84.643, "San Carlos, Alajuela", "Pueblo turístico al pie del volcán Arenal."],
- ["Distrito Sámara", "Distrito", 2, 9.88, -85.53, "Nicoya, Guanacaste", "Distrito costero de la península de Nicoya, una de las zonas azules de longevidad."],
- ["Distrito Las Juntas", "Distrito", 3, 10.28, -85.01, "Abangares, Guanacaste", "Cabecera de Abangares, con una larga historia de minería de oro."],
- ["Distrito Bijagua", "Distrito", 3, 10.73, -85.06, "Upala, Alajuela", "Entrada norte al Parque Nacional Volcán Tenorio."],
+ ["PN Palo Verde", "Parque nacional", 3, 10.35, -85.35, "Bagaces, Guanacaste", "Humedal estacional junto al río Tempisque, clave para aves acuáticas."],
  ["Santa Cruz", "Ciudad", 2, 10.26, -85.585, "Guanacaste", "Declarada Ciudad Folclórica de Costa Rica."],
  ["Cañas", "Ciudad", 2, 10.43, -85.09, "Guanacaste", "Cruce de la Interamericana hacia Tilarán y Upala."],
  ["Tilarán", "Ciudad", 3, 10.47, -84.97, "Guanacaste", "Junto al lago Arenal, conocida por sus parques eólicos."],
@@ -114,12 +108,12 @@ window.PLACES = [
  ["Museo Nacional", "Patrimonio", 1, 9.932, -84.072, "San José", "Funciona en el antiguo Cuartel Bellavista, donde se abolió el ejército en 1948."],
  ["Estadio Nacional, La Sabana", "Patrimonio", 1, 9.937, -84.108, "San José", "Está en el parque metropolitano La Sabana, antiguo aeropuerto de la capital."],
  ["Ciudad Universitaria Rodrigo Facio", "Patrimonio", 1, 9.937, -84.051, "Montes de Oca, San José", "Sede central de la Universidad de Costa Rica."],
- ["PN Braulio Carrillo, túnel Zurquí", "Área protegida", 2, 10.06, -84.01, "Heredia", "La Ruta 32 atraviesa el parque y su único túnel carretero."],
- ["PN Carara", "Área protegida", 2, 9.78, -84.6, "Garabito, Puntarenas", "Bosque de transición donde es común ver lapas rojas."],
- ["PN Tapantí", "Área protegida", 3, 9.7, -83.78, "Paraíso, Cartago", "Uno de los lugares más lluviosos del país."],
- ["PN Barra Honda", "Área protegida", 3, 10.17, -85.36, "Nicoya, Guanacaste", "Protege un sistema de cavernas de piedra caliza."],
- ["PN La Amistad, sector Altamira", "Área protegida", 3, 9.03, -83.01, "Buenos Aires, Puntarenas", "Parque binacional con Panamá y Patrimonio Mundial."],
- ["PN Los Quetzales", "Área protegida", 3, 9.56, -83.8, "Dota, San José", "Robledales de altura donde se observa el quetzal."],
+ ["PN Braulio Carrillo, túnel Zurquí", "Parque nacional", 2, 10.06, -84.01, "Heredia", "La Ruta 32 atraviesa el parque y su único túnel carretero."],
+ ["PN Carara", "Parque nacional", 2, 9.78, -84.6, "Garabito, Puntarenas", "Bosque de transición donde es común ver lapas rojas."],
+ ["PN Tapantí", "Parque nacional", 3, 9.7, -83.78, "Paraíso, Cartago", "Uno de los lugares más lluviosos del país."],
+ ["PN Barra Honda", "Parque nacional", 3, 10.17, -85.36, "Nicoya, Guanacaste", "Protege un sistema de cavernas de piedra caliza."],
+ ["PN La Amistad, sector Altamira", "Parque nacional", 3, 9.03, -83.01, "Buenos Aires, Puntarenas", "Parque binacional con Panamá y Patrimonio Mundial."],
+ ["PN Los Quetzales", "Parque nacional", 3, 9.56, -83.8, "Dota, San José", "Robledales de altura donde se observa el quetzal."],
  ["Refugio Gandoca-Manzanillo", "Área protegida", 2, 9.62, -82.64, "Talamanca, Limón", "Refugio costero con arrecifes y humedales en el extremo sureste."],
  ["Isla Uvita", "Isla", 3, 9.995, -83.01, "Limón", "Isla frente a Limón donde fondeó Colón en 1502."],
  ["Isla Murciélago", "Isla", 3, 10.85, -85.91, "La Cruz, Guanacaste", "Archipiélago del sector marino del Área de Conservación Guanacaste."],
@@ -179,5 +173,17 @@ window.PLACES = [
  ["Laurel", "Poblado", 4, 8.44, -82.91, "Corredores, Puntarenas", "Pueblo bananero cercano a la frontera sur."],
  ["Sabalito", "Poblado", 4, 8.83, -82.86, "Coto Brus, Puntarenas", "Pueblo cafetalero cerca de la frontera con Panamá."],
  ["Agua Buena", "Poblado", 4, 8.75, -82.96, "Coto Brus, Puntarenas", "Pueblo en la ruta entre Ciudad Neily y San Vito."],
- ["Santa Cecilia", "Poblado", 4, 11.06, -85.42, "La Cruz, Guanacaste", "Pueblo de la frontera norte, al este de La Cruz."]
+ ["Santa Cecilia", "Poblado", 4, 11.06, -85.42, "La Cruz, Guanacaste", "Pueblo de la frontera norte, al este de La Cruz."],
+ ["PN Cahuita, sector Puerto Vargas", "Parque nacional", 2, 9.72, -82.82, "Talamanca, Limón", "Protege el arrecife coralino más desarrollado de la costa caribeña del país."],
+ ["PN Marino Las Baulas", "Parque nacional", 2, 10.33, -85.85, "Santa Cruz, Guanacaste", "Protege playa Grande, sitio de anidación de la tortuga baula."],
+ ["PN Marino Ballena", "Parque nacional", 2, 9.12, -83.73, "Osa, Puntarenas", "Conocido por el tómbolo en forma de cola de ballena y la visita de ballenas jorobadas."],
+ ["PN Barbilla", "Parque nacional", 3, 9.97, -83.45, "Siquirres, Limón", "Bosque lluvioso del Caribe vecino a territorio indígena cabécar."],
+ ["PN Diriá", "Parque nacional", 3, 10.17, -85.6, "Santa Cruz, Guanacaste", "Protege bosques y nacientes en los cerros de Santa Cruz."],
+ ["PN Juan Castro Blanco", "Parque nacional", 3, 10.27, -84.37, "San Carlos, Alajuela", "Protege nacientes de agua de varios cantones de Alajuela."],
+ ["PN Piedras Blancas", "Parque nacional", 3, 8.73, -83.25, "Golfito, Puntarenas", "Bosque lluvioso frente al Golfo Dulce."],
+ ["PN Maquenque", "Parque nacional", 3, 10.7, -84.2, "San Carlos, Alajuela", "Uno de los parques más recientes, refugio de la lapa verde."],
+ ["PN Guanacaste, sector Pitilla", "Parque nacional", 3, 10.99, -85.43, "La Cruz, Guanacaste", "Parte del Área de Conservación Guanacaste, Patrimonio Mundial."],
+ ["PN Volcán Arenal", "Parque nacional", 1, 10.45, -84.73, "San Carlos, Alajuela", "Protege el volcán y senderos sobre antiguas coladas de lava."],
+ ["PN Santa Rosa, Playa Naranjo", "Parque nacional", 3, 10.8, -85.67, "La Cruz, Guanacaste", "Playa del parque frente a la Roca Bruja, famosa entre surfistas."],
+ ["PN Chirripó, base Crestones", "Parque nacional", 2, 9.47, -83.48, "Pérez Zeledón, San José", "Formaciones rocosas cerca del albergue, en el camino a la cima."]
 ];
