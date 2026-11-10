@@ -180,6 +180,10 @@ const NIVELES = [1,1,1, 2,2,2, 3,3,3, 4,4,4, 5,5,5];
 const NOMBRE_NIVEL = ['','Muy fácil','Fácil','Media','Difícil','Experto'];
 // Primer día del reto (año, mes-1, día): sirve para numerar los retos.
 const INICIO = new Date(2026, 10, 10);
+// REINICIO DEL DÍA: para cambiar las preguntas de hoy y que todos puedan volver a jugar,
+// escribí aquí cualquier texto nuevo (por ejemplo "b", luego "c"…) y borrá las filas de hoy
+// en la pestaña Cumbre de la hoja. Al día siguiente se puede dejar como está o vaciarlo.
+const REINICIO = "a";
 // Pestaña de la hoja de puntajes de este juego (no cambiar).
 const JUEGO = "cumbre";
 // =====================================================
@@ -192,7 +196,7 @@ const ls = {get(k){try{return localStorage.getItem(k);}catch(e){return null;}}, 
 const pad = n => String(n).padStart(2,'0');
 const now = new Date(), FECHA = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`, YMD = Number(FECHA.replace(/-/g,''));
 const dayNo = Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate()) - INICIO)/864e5) + 1;
-const KEY = 'cumbre-tuc-v1-' + FECHA;
+const KEY = 'cumbre-tuc-v1-' + FECHA + (REINICIO ? '-' + REINICIO : '');
 let jugador = ls.get('ubica-cr-jugador') || '';
 
 // ---------- azar determinístico ----------
@@ -216,7 +220,7 @@ let state=null;
 function blankLife(meet){const l={c50:false,pista:false,cambio:false};if(meet)l.sala=false;return l;}
 function start(mode){
   stopTimer();setModeButtons(mode);document.body.classList.toggle('reunion',mode==='meet');
-  const daily=mode==='daily';const seed=daily?String(YMD):String(Math.random());
+  const daily=mode==='daily';const seed=daily?String(YMD)+REINICIO:String(Math.random());
   const {main,reserve}=pickDay(seed);
   state={mode,seed,qs:main.slice(),reserve,step:0,life:blankLife(!daily),hidden:{},hintShown:{},swapped:null,sel:null,phase:'intro',log:[],end:null,sent:false,cur:null,paused:false};
   if(daily){let s=null;try{s=JSON.parse(ls.get(KEY)||'null');}catch(e){}
