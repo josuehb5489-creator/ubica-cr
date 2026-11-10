@@ -305,10 +305,11 @@ function render(){renderWho();renderLadder();const st=document.getElementById('s
   if(state.phase==='ask'||state.phase==='reveal'){
     const rev=state.phase==='reveal',q=curQ(),opts=curOpts(),hid=state.hidden[rev?state.log.length-1:state.step]||[];
     const last=state.log[state.log.length-1];
-    const cls=i=>{if(!rev)return (i===state.sel?'sel':'')+(hid.includes(i)?' gone':'');const sel=last&&last.sel;
-      if(opts[i].ok)return 'ok';if(i===sel)return 'no';return hid.includes(i)?'gone':'';};
-    // en revelado, la pregunta mostrada es la recién respondida
+    // en revelado, la pregunta mostrada es la recién respondida (no la siguiente)
     let qq=q,oo=opts;if(rev){qq=BANCO[last.q];oo=optionsOf(last.q,state.seed);}
+    // al revelar: solo la correcta en verde; la elegida en rojo únicamente si era incorrecta
+    const cls=i=>{if(!rev)return (i===state.sel?'sel':'')+(hid.includes(i)?' gone':'');const sel=last&&last.sel;
+      if(oo[i].ok)return 'ok';if(i===sel)return 'no';return hid.includes(i)?'gone':'';};
     const lifeBtn=(k,label,aria)=>`<button class="life" id="L_${k}" ${state.life[k]&&k!=='sala'||rev?'disabled':''} aria-label="${aria}">${label}</button>`;
     const stepShown=rev?state.log.length-1:state.step;
     st.innerHTML=`${stripHTML()}<div class="meta"><span>Pregunta ${stepShown+1} de 15 · por ${fmt(ESCALERA[stepShown])} m</span><span>${NOMBRE_NIVEL[NIVELES[stepShown]]}</span></div>
