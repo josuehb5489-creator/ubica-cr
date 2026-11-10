@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Ubicá Costa Rica · INEC</title>
-<meta name="description" content="Juego diario de geografía de Costa Rica: ubicá 20 lugares en el mapa.">
+<title>Ubicá el Mundo · INEC</title>
+<meta name="description" content="Juego diario de geografía mundial: ubicá 20 países, ciudades y maravillas en el mapa.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -50,6 +50,7 @@ svg#map{width:100%;height:100%;display:block}
 .coast{fill:none;stroke:var(--land-edge);stroke-width:1.4;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 .nb{fill:var(--land);opacity:.45;stroke:var(--border);stroke-width:.8;vector-effect:non-scaling-stroke}
 .lake{fill:var(--sea);stroke:var(--border);stroke-width:.6;vector-effect:non-scaling-stroke}
+.grat.eq{stroke-dasharray:6 4}
 .grat{stroke:var(--grid);stroke-width:1;vector-effect:non-scaling-stroke;fill:none}
 .gl{fill:var(--truth);opacity:.55;font-family:var(--f-mono)}
 .nbl{fill:var(--muted);font-family:var(--f-display);font-weight:600;letter-spacing:.2em;opacity:.7}
@@ -147,7 +148,7 @@ table.board tr.me td{color:var(--accent);font-weight:600}
 <div class="app">
   <div class="inst"><span>INEC</span><span>Unidad de Cartografía</span><span>Comisión TUC</span></div>
   <header>
-    <div class="brand">Ubicá Costa Rica <small id="dayLabel"></small></div>
+    <div class="brand">Ubicá el Mundo <small id="dayLabel"></small></div>
     <div class="who" id="who"></div>
     <div class="modes" role="group" aria-label="Vista">
       <button id="mDaily" aria-pressed="true">Reto diario</button>
@@ -161,14 +162,14 @@ table.board tr.me td{color:var(--accent);font-weight:600}
         <g id="gBase"></g><g id="gGrat"></g><g id="gMarks"></g>
       </svg>
       <div class="mtimer" id="mTimer" hidden><span id="mBar"></span></div>
-      <div class="coords" id="coords">CRTM05 · mové el cursor sobre el mapa</div>
+      <div class="coords" id="coords">Mové el cursor sobre el mapa</div>
       <div class="zoom"><button id="zIn" aria-label="Acercar">+</button><button id="zOut" aria-label="Alejar">−</button><button id="zReset" aria-label="Ver todo el país">⤢</button></div>
     </div>
     <aside class="panel" id="panel" aria-live="polite"></aside>
   </div>
 </div>
 
-<script src="mapa.js"></script>
+<script src="mundo.js"></script>
 <script src="lugares.js"></script>
 <script>
 // =================== CONFIGURACIÓN ===================
@@ -176,50 +177,49 @@ table.board tr.me td{color:var(--accent);font-weight:600}
 // Si queda vacía, el juego funciona pero sin tabla de posiciones.
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwusm0u5WWvsfJwF9Otw8pIeD2G5mQV4AgSGdEzGOWmYIdGEVSxD0anf7SA8I0VQtjPcA/exec";
 // Composición de las 20 rondas del reto diario, de menor a mayor dificultad:
-//   1 Fácil · 2 Media · 3 Difícil · 4 Poblado · 5 Experto (poblado alejado)
-//   "PN" Parque nacional · "D" Distrito · "D+" Distrito pequeño (menos de 20 km²)
-const RONDAS = [1,1,1, 2,2,2,2, "PN","PN",3, 3,"D","D", 4,4, "D+",5,5,"D+",5];
+//   "P1" País grande (más de 1 millón de km²) · "P2" País mediano · "P3" País pequeño (menos de 150 000 km²)
+//   2 Ciudad importante · 3 Otras capitales y ciudades · 4 Maravilla o sitio turístico · 5 Experto
+const RONDAS = ["P1","P1","P1", 2,2,2,2, "P2","P2", 3,3,3, "P3","P3", 4,4,4, 5,5,5];
 // Segundos para marcar cada lugar. Si se acaba el tiempo sin marca, el lugar vale 0.
 // Si hay una marca puesta sin confirmar, se toma esa marca.
 const TIEMPO = 10;
 // Práctica: siempre los mismos 5 lugares (nombres exactos de lugares.js).
-const PRACTICA = ["Volcán Irazú","Puerto Limón","Playa Tamarindo","PN Corcovado, estación Sirena","San Gerardo de Dota"];
-// Capa de distritos (GeoJSON en WGS84) y nombres de sus campos.
-// Para usar la capa oficial del INEC, exportala desde QGIS y ajustá estos nombres (ver LEEME.md).
-const ARCHIVO_DISTRITOS = "distritos.geojson";
-const CAMPOS = { provincia: "provincia", canton: "canton", distrito: "distrito" };
+const PRACTICA = ["Brasil","Ciudad de México","Torre Eiffel","Japón","Machu Picchu"];
 // Primer día del reto (año, mes-1, día): sirve para numerar los retos.
-const INICIO = new Date(2026, 9, 20);
+const INICIO = new Date(2026, 10, 10);
 // =====================================================
+// Pestaña de la hoja de puntajes donde se guarda este juego (no cambiar).
+const JUEGO = "mundo";
 
-const PLACES = window.PLACES.slice(), GEO = window.GEO;
+const MUNDO = window.MUNDO;
+// nombre de cada país por código ISO (el polígono más grande cuando hay varios con el mismo código)
+const PAIS={};MUNDO.features.forEach(f=>{const q=f.properties;if(!PAIS[q.iso]||q.a>PAIS[q.iso].a)PAIS[q.iso]=q;});
+// [nombre, categoría, nivel, lat, lon, contexto, dato] — el contexto de cada lugar es su país
+const PLACES = window.PLACES.map(a=>[a[0],a[1],a[2],a[3],a[4],PAIS[a[5]]?PAIS[a[5]].n:a[5],a[6]]);
+const NPUNTOS = PLACES.length;
 const NR = ()=>state.rounds.length, MAXP = ()=>state.rounds.length*100;
-const DIFF=['','Fácil','Media','Difícil','Poblado','Experto','Distrito'];
+const DIFF=['','Fácil','Media','Difícil','Difícil','Experto','País'];
+const TIER=p=>p[2]===6?(p[8]>=1e6?1:p[8]>=150000?2:3):p[2]===2?2:p[2]===3?3:p[2]===4?4:5;
+const TIER_TXT=['','Fácil','Media','Difícil','Difícil','Experto'];
+function tagsHTML(p){const tr=TIER(p);return `<span class="tag">${esc(p[1])}</span><span class="tag d${tr}">${TIER_TXT[tr]}</span>`;}
 let NDIST=0, distOK=false;
 
 // ---------- proyección de pantalla ----------
-const K=100, LON0=-86.1, LAT0=11.35, CX=Math.cos(9.6*Math.PI/180);
+const K=10, LON0=-180, LAT0=90, CX=1;
 const P=(lon,lat)=>[(lon-LON0)*CX*K,(LAT0-lat)*K];
 const IP=(x,y)=>[x/(CX*K)+LON0, LAT0-y/K];
-const FULL={x:0,y:0,w:(-82.35-LON0)*CX*K,h:(LAT0-7.9)*K};
+const FULL={x:0,y:(LAT0-84)*K,w:360*K,h:(84+58)*K};
 
-// ---------- CRTM05 (TM, GRS80, MC -84°, k0 0.9999, FE 500 000) ----------
-function crtm05(lat,lon){
-  const a=6378137,f=1/298.257222101,k0=0.9999,e2=f*(2-f),ep2=e2/(1-e2),d=Math.PI/180;
-  const ph=lat*d,lm=(lon+84)*d,N=a/Math.sqrt(1-e2*Math.sin(ph)**2),T=Math.tan(ph)**2,C=ep2*Math.cos(ph)**2,A=Math.cos(ph)*lm;
-  const M=a*((1-e2/4-3*e2*e2/64-5*e2**3/256)*ph-(3*e2/8+3*e2*e2/32+45*e2**3/1024)*Math.sin(2*ph)+(15*e2*e2/256+45*e2**3/1024)*Math.sin(4*ph)-(35*e2**3/3072)*Math.sin(6*ph));
-  const E=500000+k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120);
-  const Nn=k0*(M+N*Math.tan(ph)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
-  return [E,Nn];
-}
+const llTxt=(lat,lon)=>`${Math.abs(lat).toFixed(2)}°${lat<0?'S':'N'}  ${Math.abs(lon).toFixed(2)}°${lon<0?'O':'E'}`;
 const fmt=n=>String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function hav(a,b){const R=6371,d=Math.PI/180,dl=(b[1]-a[1])*d,dn=(b[0]-a[0])*d;
   const h=Math.sin(dn/2)**2+Math.cos(a[0]*d)*Math.cos(b[0]*d)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
-const scoreFor=km=>km<=1?100:Math.max(0,Math.round(100*Math.exp(-(km-1)/35)));
+// 100 puntos a 25 km o menos; la mitad cerca de los 440 km; casi 0 pasados los 2500 km
+const scoreFor=km=>km<=25?100:Math.max(0,Math.round(100*Math.exp(-(km-25)/600)));
 const band=p=>p>=70?'g':p>=35?'m':'b';
 const sq=p=>p>=70?'🟩':p>=35?'🟨':'🟥';
-const kmTxt=km=>km<10?km.toFixed(1):String(Math.round(km));
+const kmTxt=km=>km<10?km.toFixed(1):fmt(km);
 
 // ---------- mapa base ----------
 const NS='http://www.w3.org/2000/svg';
@@ -227,20 +227,18 @@ const svg=document.getElementById('map'),gB=document.getElementById('gBase'),gG=
 function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.appendChild(e);return e;}
 function ringsD(geom){const polys=geom.type==='Polygon'?[geom.coordinates]:geom.coordinates;let d='';
   for(const poly of polys)for(const ring of poly){ring.forEach((c,i)=>{const [x,y]=P(c[0],c[1]);d+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);});d+='Z';}return d;}
-GEO.nb.forEach(f=>el('path',{d:ringsD(f.geometry),class:'nb'},gB));
-GEO.prov.forEach(f=>el('path',{d:ringsD(f.geometry),class:'prov'},gB));
-GEO.lakes.forEach(f=>el('path',{d:ringsD(f.geometry),class:'lake'},gB));
-[["NICARAGUA",-85.0,11.2],["PANAMÁ",-82.55,8.75],["OCÉANO PACÍFICO",-85.4,8.6],["MAR CARIBE",-83.05,10.95]].forEach(([t,lo,la])=>{const [x,y]=P(lo,la);el('text',{x,y,class:'nbl','font-size':9,'text-anchor':'middle'},gB).textContent=t;});
+MUNDO.features.forEach(f=>el('path',{d:ringsD(f.geometry),class:'prov'},gB));
+[["OCÉANO PACÍFICO",-150,5],["OCÉANO PACÍFICO",-125,-30],["OCÉANO ATLÁNTICO",-35,25],["OCÉANO ATLÁNTICO",-15,-28],["OCÉANO ÍNDICO",78,-25],["OCÉANO ÁRTICO",0,80],["OCÉANO PACÍFICO",165,20]].forEach(([tx,lo,la])=>{const [x,y]=P(lo,la);el('text',{x,y,class:'nbl','font-size':40,'text-anchor':'middle'},gB).textContent=tx;});
 let view={...FULL};
-function drawGrat(){gG.innerHTML='';const fs=view.w*0.018;
-  for(let lo=-86;lo<=-82.5;lo+=0.5){const [x,y1]=P(lo,LAT0),[,y2]=P(lo,7.9);el('line',{x1:x,x2:x,y1,y2,class:'grat'},gG);
-    el('text',{x:x+fs*.3,y:view.y+fs*1.2,class:'gl','font-size':fs},gG).textContent=Math.abs(lo).toFixed(1)+'°O';}
-  for(let la=8;la<=11.5;la+=0.5){const [x1,y]=P(LON0,la),[x2]=P(-82.35,la);el('line',{x1,x2,y1:y,y2:y,class:'grat'},gG);
-    el('text',{x:view.x+fs*.4,y:y-fs*.3,class:'gl','font-size':fs},gG).textContent=la.toFixed(1)+'°N';}}
+function drawGrat(){gG.innerHTML='';const fs=view.w*0.016,st=view.w>1500?30:view.w>500?10:5;
+  for(let lo=-180;lo<=180;lo+=st){const [x,y1]=P(lo,84),[,y2]=P(lo,-58);el('line',{x1:x,x2:x,y1,y2,class:'grat'},gG);
+    el('text',{x:x+fs*.3,y:view.y+fs*1.2,class:'gl','font-size':fs},gG).textContent=Math.abs(lo)+'°'+(lo<0?'O':lo>0?'E':'');}
+  for(let la=-50;la<=80;la+=st){const [x1,y]=P(-180,la),[x2]=P(180,la);el('line',{x1,x2,y1:y,y2:y,class:'grat'+(la===0?' eq':'')},gG);
+    el('text',{x:view.x+fs*.4,y:y-fs*.3,class:'gl','font-size':fs},gG).textContent=Math.abs(la)+'°'+(la<0?'S':la>0?'N':'');}}
 function applyView(){svg.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`);drawGrat();drawMarks();}
 function setView(v){view={...v};applyView();}
 function toSvg(cx,cy){const pt=svg.createSVGPoint();pt.x=cx;pt.y=cy;return pt.matrixTransform(svg.getScreenCTM().inverse());}
-function zoomAt(cx,cy,f){const p=toSvg(cx,cy);const w=Math.min(FULL.w*1.25,Math.max(FULL.w/40,view.w*f)),r=w/view.w;
+function zoomAt(cx,cy,f){const p=toSvg(cx,cy);const w=Math.min(FULL.w*1.25,Math.max(FULL.w/80,view.w*f)),r=w/view.w;
   view={x:p.x-(p.x-view.x)*r,y:p.y-(p.y-view.y)*r,w,h:view.h*r};applyView();}
 function fitTo(pts){if(!pts.length)return setView(FULL);const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
   let w=Math.max(Math.max(...xs)-Math.min(...xs),FULL.w/8)*1.6,h=Math.max(Math.max(...ys)-Math.min(...ys),FULL.h/8)*1.6;
@@ -254,7 +252,7 @@ wrap.addEventListener('pointerdown',e=>{if(e.target.closest('.zoom'))return;wrap
   if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y)};drag=null;}});
 wrap.addEventListener('pointermove',e=>{
   const s=toSvg(e.clientX,e.clientY),[lon,lat]=IP(s.x,s.y);
-  if(lat>7.9&&lat<11.35&&lon>-86.1&&lon<-82.35){const [E,N]=crtm05(lat,lon);coordsEl.style.whiteSpace='pre';coordsEl.textContent=`CRTM05  E ${fmt(E)}  N ${fmt(N)}\n${lat.toFixed(4)}°N  ${Math.abs(lon).toFixed(4)}°O`;}
+  if(lat>-90&&lat<90&&lon>-180&&lon<180)coordsEl.textContent=llTxt(lat,lon);
   if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch&&ptrs.size===2){const [a,b]=[...ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(Math.abs(d-pinch.d)>2){zoomAt((a.x+b.x)/2,(a.y+b.y)/2,pinch.d/d);pinch.d=d;moved=true;}return;}
   if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.hypot(dx,dy)>6){moved=true;wrap.classList.add('dragging');}
@@ -288,19 +286,18 @@ const pad=n=>String(n).padStart(2,'0');
 const now=new Date(),FECHA=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
 const YMD=Number(FECHA.replace(/-/g,''));
 const dayNo=Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate())-INICIO)/864e5)+1;
-const KEY='ubica-cr-v3-'+FECHA;
+const KEY='ubica-mundo-v1-'+FECHA;
 let jugador=ls.get('ubica-cr-jugador')||'';
 
 // ---------- selección determinística del reto ----------
 function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function hashSeed(n){let h=2166136261;for(const c of String(n)){h=Math.imul(h^c.charCodeAt(0),16777619);}return h>>>0;}
-function fitsToken(p,d){if(!d)return true;if(d==='PN')return p[1]==='Parque nacional';if(d==='D')return p[2]===6;if(d==='D+')return p[2]===6&&p[8]<20;return p[2]===d&&p[1]!=='Parque nacional';}
+function fitsToken(p,d){if(!d)return true;if(typeof d==='string'&&d[0]==='P')return p[2]===6&&TIER(p)===Number(d[1]);return p[2]===d;}
 function pickRounds(seed,mix){const r=rng(hashSeed(seed));for(let k=0;k<5;k++)r();const used=new Set(),out=[];
-  for(let d of mix){if((d==='D'||d==='D+')&&!distOK)d=3;
+  for(let d of mix){if(typeof d==='string'&&!distOK)d=2;
     let pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i)&&fitsToken(PLACES[i],d));
-    if(!pool.length&&d==='D+')pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i)&&fitsToken(PLACES[i],'D'));
     if(!pool.length)pool=PLACES.map((p,i)=>i).filter(i=>!used.has(i));
-    const cats=new Set(out.map(i=>PLACES[i][1]));const fresh=pool.filter(i=>!cats.has(PLACES[i][1]));if(fresh.length&&typeof d==='number'&&d<4)pool=fresh;
+    const cats=new Set(out.map(i=>PLACES[i][1]));const fresh=pool.filter(i=>!cats.has(PLACES[i][1]));if(fresh.length&&typeof d==='number')pool=fresh;
     const i=pool[Math.floor(r()*pool.length)];used.add(i);out.push(i);}
   return out;}
 
@@ -312,7 +309,7 @@ function makeResult(i,guess){const p=PLACES[i];
     return{i,place:p,guess,km,pts:inside?100:scoreFor(km),inside,near:nr};}
   const km=hav(guess,[p[3],p[4]]);return{i,place:p,guess,km,pts:scoreFor(km)};}
 
-// ---------- geometría de distritos ----------
+// ---------- geometría de países ----------
 function polysOf(g){return g.type==='Polygon'?[g.coordinates]:g.coordinates;}
 function inRing(pt,ring){const x=pt[1],y=pt[0];let c=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const [xi,yi]=ring[i],[xj,yj]=ring[j];
   if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c;}return c;}
@@ -334,16 +331,14 @@ function repPoint(g){const poly=polysOf(g).reduce((a,b)=>ringArea(b[0])>ringArea
     for(const ring of poly)for(let i=1;i<ring.length;i++){const [xa,ya]=ring[i-1],[xb,yb]=ring[i];if((ya>y)!==(yb>y))xs.push(xa+(y-ya)*(xb-xa)/(yb-ya));}
     xs.sort((a,b)=>a-b);for(let k=0;k+1<xs.length;k+=2){const w=xs[k+1]-xs[k];if(w>bw){bw=w;best=[y,(xs[k]+xs[k+1])/2];}}}
   return best||[poly[0][0][1],poly[0][0][0]];}
-async function loadDistritos(){
-  try{const res=await fetch(ARCHIVO_DISTRITOS);if(!res.ok)throw new Error(res.status);const fc=await res.json();
-    const feats=fc.features.filter(f=>f.geometry&&/Polygon/.test(f.geometry.type));
-    const porCanton={};feats.forEach(f=>{const k=f.properties[CAMPOS.provincia]+'|'+f.properties[CAMPOS.canton];porCanton[k]=(porCanton[k]||0)+1;});
-    feats.forEach(f=>{const pr=f.properties,g=f.geometry,[lat,lon]=repPoint(g);
-      const a=areaKm2(g),n=porCanton[pr[CAMPOS.provincia]+'|'+pr[CAMPOS.canton]];
-      const dato=`Mide cerca de ${a<10?a.toFixed(1):Math.round(a)} km². El cantón de ${pr[CAMPOS.canton]} tiene ${n} distrito${n===1?'':'s'}.`;
-      PLACES.push([`Distrito ${pr[CAMPOS.distrito]}`,'Distrito',6,lat,lon,`${pr[CAMPOS.canton]}, ${pr[CAMPOS.provincia]}`,dato,g,a]);});
-    NDIST=feats.length;distOK=NDIST>0;
-  }catch(e){distOK=false;console.warn('No se cargó la capa de distritos:',e);}
+async function loadPaises(){
+  // países preguntables: soberanos y Groenlandia, de más de 1000 km², sin territorios en disputa
+  const caps={};PLACES.forEach(p=>{if(p[1]==='Capital')caps[p[5]]=p[0];});
+  MUNDO.features.filter(f=>f.properties.q).forEach(f=>{const pr=f.properties,g=f.geometry,[lat,lon]=repPoint(g),a=pr.a;
+    const sup=a>=1e6?`${(a/1e6).toFixed(1).replace('.',',')} millones de km²`:`${fmt(a)} km²`;
+    const dato=`Superficie aproximada: ${sup}.${caps[pr.n]?` Su capital es ${caps[pr.n]}.`:''}`;
+    PLACES.push([pr.n,'País',6,lat,lon,pr.c,dato,g,a]);});
+  NDIST=PLACES.length-NPUNTOS;distOK=NDIST>0;
 }
 function saveLocal(){if(state.mode!=='daily')return;ls.set(KEY,JSON.stringify({results:state.results.map(r=>({i:r.i,guess:r.guess})),sent:state.sent||false,cur:state.cur??null}));}
 function setModeButtons(m){[['mDaily','daily'],['mPractice','practice'],['mBoard','board']].forEach(([id,v])=>document.getElementById(id).setAttribute('aria-pressed',m===v));}
@@ -392,7 +387,7 @@ function confirmGuess(){if(!state.pending||state.phase!=='ask')return;stopTimer(
 function resPts(r){const pts=[P(r.place[4],r.place[3])];if(r.guess)pts.push(P(r.guess[1],r.guess[0]));if(r.place[7])polysOf(r.place[7]).forEach(poly=>poly[0].forEach(c=>pts.push(P(c[0],c[1]))));return pts;}
 function next(){if(state.results.length>=NR()){state.phase='summary';fitAll();render();if(state.mode==='daily')submit();}else{state.phase='ask';setView(FULL);render();startTimer();}}
 const total=()=>state.results.reduce((a,r)=>a+r.pts,0);
-function shareText(){return `Ubicá Costa Rica ${state.mode==='daily'?'N.º '+dayNo:'(práctica)'}\n${state.results.map(r=>r.timeout?'⬛':sq(r.pts)).join('')}  ${total()}/${MAXP()}`;}
+function shareText(){return `Ubicá el Mundo ${state.mode==='daily'?'N.º '+dayNo:'(práctica)'}\n${state.results.map(r=>r.timeout?'⬛':sq(r.pts)).join('')}  ${total()}/${MAXP()}`;}
 
 // ---------- tabla de posiciones (Google Sheets) ----------
 let sendStatus='';
@@ -400,7 +395,7 @@ async function submit(){
   if(!SCRIPT_URL){sendStatus='nocfg';render();return;}
   if(!jugador){sendStatus='noname';render();return;}
   sendStatus='sending';render();
-  const body={accion:'guardar',fecha:FECHA,reto:dayNo,jugador,puntos:total(),
+  const body={accion:'guardar',juego:JUEGO,fecha:FECHA,reto:dayNo,jugador,puntos:total(),
     detalle:state.results.map(r=>`${r.place[0]}: ${r.timeout?'sin respuesta':r.inside?'dentro':kmTxt(r.km)+' km'}, ${r.pts}`).join(' | ')};
   try{
     const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
@@ -414,7 +409,7 @@ let boardTab='hoy',boardData=null,boardErr='';
 async function openBoard(){
   stopTimer();setModeButtons('board');state={...(state||{}),prev:state,phase:'board'};boardData=null;boardErr='';render();
   if(!SCRIPT_URL){boardErr='La tabla de posiciones todavía no está configurada (falta SCRIPT_URL en index.html).';render();return;}
-  try{const res=await fetch(`${SCRIPT_URL}?accion=tabla&fecha=${FECHA}`);boardData=await res.json();if(!boardData.ok)boardErr=boardData.mensaje||'Error al leer la hoja.';}
+  try{const res=await fetch(`${SCRIPT_URL}?accion=tabla&juego=${JUEGO}&fecha=${FECHA}`);boardData=await res.json();if(!boardData.ok)boardErr=boardData.mensaje||'Error al leer la hoja.';}
   catch(e){boardErr='No se pudo conectar con la hoja de posiciones.';}
   if(state.phase==='board')render();
 }
@@ -422,7 +417,7 @@ function askName(change){stopTimer();state={...(state||{mode:'daily'}),prev:stat
 
 // ---------- panel ----------
 function pipsHTML(){return `<div class="pips">${state.rounds.map((_,k)=>{const r=state.results[k];const cur=k===state.results.length&&state.phase==='ask';return `<span class="pip ${r?band(r.pts):cur?'on':''}"></span>`;}).join('')}</div>`;}
-function foot(){return `<div class="foot">${TIEMPO} s por lugar. Puntaje: 100 a 1 km o menos (o dentro del distrito), 50 cerca de 25 km. Coordenadas en CRTM05. Banco: ${PLACES.length-NDIST} lugares y ${NDIST} distritos.</div>`;}
+function foot(){return `<div class="foot">${TIEMPO} s por lugar. Puntaje: 100 a 25 km o menos (o dentro del país), 50 cerca de 440 km. Coordenadas WGS84. Banco: ${NDIST} países y ${PLACES.length-NDIST} lugares.</div>`;}
 function statusHTML(){if(state.mode!=='daily')return '';
   const m={'':'', sending:'<div class="status">Enviando tu puntaje…</div>', ok:'<div class="status ok">Puntaje registrado en la tabla de posiciones.</div>',
     dup:'<div class="status ok">Ya habías registrado el reto de hoy.</div>', nocfg:'<div class="status">La tabla de posiciones no está configurada; el puntaje queda solo en este navegador.</div>',
@@ -472,16 +467,16 @@ function render(){renderWho();const pn=document.getElementById('panel');
   if(state.phase==='ask'){const p=PLACES[state.rounds[n]];
     pn.innerHTML=`${head}<div class="timer" id="tBox"><span class="track"><span class="fill" id="tFill"></span></span><span class="secs" id="tSecs">${TIEMPO.toFixed(1)} s</span></div>
       <div class="ask"><span class="lead">Tocá el mapa donde está</span><h2>${esc(p[0])}</h2>
-      <div class="tags">${p[1]===DIFF[p[2]]?'':`<span class="tag">${esc(p[1])}</span>`}<span class="tag d${p[2]}">${DIFF[p[2]]}</span></div>
-      <div class="ctx">${p[7]?'Marcá cualquier punto dentro del distrito · ':''}${esc(p[5])}</div></div>
+      <div class="tags">${tagsHTML(p)}</div>
+      <div class="ctx">${p[7]?'Marcá cualquier punto dentro del país · ':''}${esc(p[5])}</div></div>
       <button class="btn" id="bOk" ${state.pending?'':'disabled'}>${state.pending?'Confirmar ubicación':'Tocá el mapa para marcar'}</button>
       <p class="hint">Tenés ${TIEMPO} segundos. Si se acaba el tiempo, cuenta la marca que hayas puesto; sin marca, el lugar vale 0.</p>${foot()}`;
     document.getElementById('bOk').onclick=confirmGuess;tick();}
-  else if(state.phase==='reveal'){const r=state.results[n-1],p=r.place;const g=r.guess?crtm05(r.guess[0],r.guess[1]):null,t=crtm05(p[3],p[4]);
+  else if(state.phase==='reveal'){const r=state.results[n-1],p=r.place;const g=r.guess;
     pn.innerHTML=`${head}<div class="ask"><span class="lead">${esc(p[1])} · ${esc(p[5])}</span><h2>${esc(p[0])}</h2></div>
-      <div class="result"><div class="big"><span class="pts" style="color:var(--${{g:'good',m:'mid',b:'bad'}[band(r.pts)]})">+${r.pts}</span><span class="km${r.timeout?' out':''}">${r.timeout?'Se acabó el tiempo':r.inside?'¡Dentro del distrito!':(p[7]?`a ${kmTxt(r.km)} km del límite`:`a ${kmTxt(r.km)} km`)}</span></div>
+      <div class="result"><div class="big"><span class="pts" style="color:var(--${{g:'good',m:'mid',b:'bad'}[band(r.pts)]})">+${r.pts}</span><span class="km${r.timeout?' out':''}">${r.timeout?'Se acabó el tiempo':r.inside?'¡Dentro del país!':(p[7]?`a ${kmTxt(r.km)} km de la frontera`:`a ${kmTxt(r.km)} km`)}</span></div>
       <p class="fact">${esc(p[6])}</p>
-      <div class="crtm"><b class="k1">Tu marca</b><span>${g?`E ${fmt(g[0])} · N ${fmt(g[1])}`:'sin marca'}</span><b class="k2">Real</b><span>E ${fmt(t[0])} · N ${fmt(t[1])}</span></div></div>
+      <div class="crtm"><b class="k1">Tu marca</b><span>${g?llTxt(g[0],g[1]):'sin marca'}</span><b class="k2">${p[7]?'Centro':'Real'}</b><span>${llTxt(p[3],p[4])}</span></div></div>
       <button class="btn" id="bNext">${n>=NR()?'Ver resultado':'Siguiente lugar'}</button>${foot()}`;
     const b=document.getElementById('bNext');b.onclick=next;b.focus({preventScroll:true});}
   else{const st=shareText();
@@ -504,8 +499,8 @@ function render(){renderWho();const pn=document.getElementById('panel');
 document.getElementById('mDaily').onclick=()=>start('daily');
 document.getElementById('mPractice').onclick=()=>start('practice');
 document.getElementById('mBoard').onclick=openBoard;
-document.getElementById('panel').innerHTML='<p class="hint">Cargando mapa de distritos…</p>';
-loadDistritos().then(()=>start('daily'));
+document.getElementById('panel').innerHTML='<p class="hint">Cargando mapa…</p>';
+loadPaises().then(()=>start('daily'));
 </script>
 </body>
 </html>
