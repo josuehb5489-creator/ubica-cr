@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cumbre TUC · INEC</title>
+<meta name="description" content="Juego diario de cultura general de la Unidad de Cartografía: 15 preguntas para llegar a la cumbre.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: pregunta a la izquierda sobre un fondo de curvas de nivel; a la derecha, la escalera de altitudes hasta la cumbre del Chirripó. En teléfono la escalera se resume en una franja. */
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --paper:#f3f5ef; --panel:#fbfcf8; --ink:#1d272b; --muted:#5d6b66; --rule:#d6dccf;
+  --land:#dfe6d3; --contour:rgba(127,140,120,.22);
+  --accent:#a3215f; --accent-soft:#f3dbe7; --truth:#1d4e89; --truth-soft:#dbe6f3;
+  --good:#2f7a4b; --good-soft:#dcefe2; --mid:#b07a12; --bad:#a83a2c; --bad-soft:#f6dfdb;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#111a1e; --panel:#172126; --ink:#e7ece6; --muted:#9aa8a2; --rule:#2c3a3a;
+  --land:#26322b; --contour:rgba(123,138,122,.18);
+  --accent:#f06aa8; --accent-soft:#3d2030; --truth:#7fb2ee; --truth-soft:#1d2c40;
+  --good:#6cc28d; --good-soft:#1c3326; --mid:#e0b04f; --bad:#ec7b6b; --bad-soft:#3a201c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#111a1e; --panel:#172126; --ink:#e7ece6; --muted:#9aa8a2; --rule:#2c3a3a;
+  --land:#26322b; --contour:rgba(123,138,122,.18);
+  --accent:#f06aa8; --accent-soft:#3d2030; --truth:#7fb2ee; --truth-soft:#1d2c40;
+  --good:#6cc28d; --good-soft:#1c3326; --mid:#e0b04f; --bad:#ec7b6b; --bad-soft:#3a201c; color-scheme:dark}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+[hidden]{display:none!important}
+.app{min-height:100%;display:grid;grid-template-rows:auto auto 1fr}
+.inst{display:flex;flex-wrap:wrap;align-items:center;background:var(--ink);color:var(--paper);font:600 12px var(--f-body);letter-spacing:.12em;text-transform:uppercase;padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.inst span+span::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--accent);margin:0 10px;vertical-align:middle}
+.inst span:first-child{font-family:var(--f-display);font-size:15px;letter-spacing:.18em}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--rule);background:var(--panel)}
+.brand{font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1;display:flex;align-items:baseline;gap:8px}
+.brand small{font-family:var(--f-mono);font-size:11px;font-weight:400;color:var(--muted);letter-spacing:.04em}
+.who{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.who b{color:var(--ink);font-weight:600}
+.modes{margin-left:auto;display:flex;border:1px solid var(--rule);border-radius:999px;padding:2px;background:var(--paper)}
+.modes button{font:600 13px var(--f-body);border:0;background:transparent;color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer}
+.modes button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0}
+.stage{position:relative;min-width:0;padding-block:28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));
+  background-color:var(--paper);
+  background-image:repeating-radial-gradient(ellipse at 85% 115%,transparent 0 26px,var(--contour) 26px 27px),repeating-radial-gradient(ellipse at 10% -20%,transparent 0 34px,var(--contour) 34px 35px);}
+.inner{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.ladder{background:var(--panel);border-left:1px solid var(--rule);padding-block:18px;padding-left:18px;padding-right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px;min-width:0}
+.ladder h3{margin:0;font:500 12px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column-reverse;gap:2px}
+.steps li{display:grid;grid-template-columns:2.2em 1fr auto;align-items:baseline;gap:8px;padding:5px 8px;border-radius:6px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.steps li .n{font:500 12px var(--f-mono)}
+.steps li .m{font:600 15px var(--f-mono);text-align:right}
+.steps li .lbl{font-size:12px}
+.steps li.safe{color:var(--ink)}
+.steps li.safe .lbl{color:var(--truth);font-weight:600}
+.steps li.done{color:var(--good)}
+.steps li.cur{background:var(--ink);color:var(--paper)}
+.steps li.cur .lbl{color:var(--paper)}
+.steps li.top .m{color:var(--accent)}
+.strip{display:none}
+.meta{display:flex;justify-content:space-between;align-items:baseline;font:500 12px var(--f-mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase;gap:10px;flex-wrap:wrap}
+.timer{display:flex;align-items:center;gap:10px}
+.timer .track{flex:1;height:8px;border-radius:4px;background:var(--rule);overflow:hidden}
+.timer .fill{display:block;height:100%;width:100%;background:var(--good);transform-origin:left center}
+.timer .secs{font:600 15px var(--f-mono);font-variant-numeric:tabular-nums;min-width:4.2em;text-align:right}
+.timer.warn .fill{background:var(--mid)}.timer.urgent .fill{background:var(--bad)}.timer.urgent .secs{color:var(--bad)}
+.timer.paused .fill{background:var(--truth)}
+.qcard{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:22px 24px;display:flex;flex-direction:column;gap:10px}
+.qcard .tema{font:600 11px var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.qcard h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:34px;line-height:1.08;text-wrap:balance}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opt{display:flex;align-items:flex-start;gap:12px;text-align:left;font:600 16px/1.3 var(--f-body);color:var(--ink);background:var(--panel);border:1.5px solid var(--rule);border-radius:10px;padding:14px 16px;cursor:pointer;min-height:58px}
+.opt .k{font:600 14px var(--f-mono);color:var(--muted);flex:none;width:1.4em}
+.opt:hover:not(:disabled){border-color:var(--ink)}
+.opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.opt.ok{border-color:var(--good);background:var(--good-soft)}
+.opt.no{border-color:var(--bad);background:var(--bad-soft)}
+.opt.gone{visibility:hidden}
+.opt:disabled{cursor:default}
+.lifelines{display:flex;gap:8px;flex-wrap:wrap}
+.life{font:600 13px var(--f-body);display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--ink);cursor:pointer}
+.life b{font-family:var(--f-mono);font-weight:500}
+.life:disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+.hintbox{background:var(--truth-soft);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:15px}
+.hintbox b{color:var(--truth)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{font:700 15px var(--f-body);padding:12px 18px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--rule)}
+.btn.wide{flex:1}
+:focus-visible{outline:2px solid var(--truth);outline-offset:2px}
+.verdict{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.verdict .v{font-family:var(--f-display);font-weight:700;font-size:36px;line-height:1}
+.verdict .v.ok{color:var(--good)}.verdict .v.no{color:var(--bad)}
+.verdict .alt{font:500 15px var(--f-mono);color:var(--muted)}
+.expl{margin:0;font-size:16px}
+.big{font-family:var(--f-display);font-weight:700;font-size:72px;line-height:1;font-variant-numeric:tabular-nums}
+.big span{font-size:28px;color:var(--muted)}
+.lead{font-size:14px;color:var(--muted)}
+h1.title{margin:0;font-family:var(--f-display);font-weight:700;font-size:46px;line-height:1.02;text-wrap:balance}
+.rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted)}
+.share{font:13px/1.5 var(--f-mono);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:10px;white-space:pre-wrap;user-select:all}
+.status{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--panel);border:1px solid var(--rule)}
+.status.ok{border-color:var(--good);color:var(--good)}.status.err{border-color:var(--bad);color:var(--bad)}
+table.board{width:100%;border-collapse:collapse;font-size:15px;background:var(--panel)}
+table.board th{font:500 11px var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+table.board td{padding:8px 10px;border-bottom:1px solid var(--rule)}
+table.board .n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+table.board tr.me td{color:var(--accent);font-weight:600}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--rule)}
+.tabs button{font:600 14px var(--f-body);background:none;border:0;border-bottom:2px solid transparent;padding:6px 10px;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.field{display:flex;flex-direction:column;gap:6px;max-width:420px}
+.field label{font-weight:600}
+.field input{font:16px var(--f-body);padding:10px 12px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--ink)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.linkbtn{font:600 13px var(--f-body);background:none;border:0;color:var(--truth);cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
+.foot{font-size:12px;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px;margin-top:6px}
+.vote{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.vote div{background:var(--panel);border:1px solid var(--rule);border-radius:10px;text-align:center;padding:14px 0;font:700 40px var(--f-display)}
+/* modo reunión: todo más grande para proyectar */
+@media (min-width:861px){
+  body.reunion .qcard h2{font-size:48px}
+  body.reunion .opt{font-size:22px;min-height:76px}
+  body.reunion .expl{font-size:20px}}
+@media (max-width:860px){
+  .main{grid-template-columns:1fr}
+  .ladder{display:none}
+  .strip{display:flex;justify-content:space-between;gap:10px;font:500 12px var(--f-mono);color:var(--muted);background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-variant-numeric:tabular-nums}
+  .strip b{color:var(--ink)}
+  .opts{grid-template-columns:1fr}
+  .qcard{padding:16px}
+  .qcard h2{font-size:26px}
+  h1.title{font-size:34px}
+  .who{display:none}
+  .stage{padding-block:16px}
+}
+@media (max-width:480px){.inst{font-size:10px;letter-spacing:.05em}.inst span:first-child{font-size:13px;letter-spacing:.1em}.inst span+span::before{margin:0 6px}.brand{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="inst"><span>INEC</span><span>Unidad de Cartografía</span><span>Comisión TUC</span></div>
+  <header>
+    <div class="brand">Cumbre TUC <small id="dayLabel"></small></div>
+    <div class="who" id="who"></div>
+    <div class="modes" role="group" aria-label="Vista">
+      <button id="mDaily" aria-pressed="true">Reto diario</button>
+      <button id="mMeet" aria-pressed="false">Modo reunión</button>
+      <button id="mBoard" aria-pressed="false">Posiciones</button>
+    </div>
+  </header>
+  <div class="main">
+    <section class="stage"><div class="inner" id="stage" aria-live="polite"></div></section>
+    <aside class="ladder" aria-label="Escalera de altitudes">
+      <h3>Ascenso al Chirripó</h3>
+      <ol class="steps" id="steps"></ol>
+      <p class="hint">Los campamentos son seguros: si fallás, bajás al último campamento alcanzado.</p>
+    </aside>
+  </div>
+</div>
+
+<script src="preguntas.js"></script>
+<script>
+// =================== CONFIGURACIÓN ===================
+// La misma URL de Apps Script que usan Ubicá CR y Ubicá el Mundo (termina en /exec).
+const SCRIPT_URL = "";
+// Segundos por pregunta en el reto diario y en el modo reunión (0 = sin cronómetro).
+const TIEMPO = 30;
+const TIEMPO_REUNION = 60;
+// Altitud (m) de cada uno de los 15 escalones y escalones seguros (campamentos).
+const ESCALERA = [100,250,500,750,1000, 1250,1500,1800,2100,2400, 2700,3000,3300,3600,3820];
+const SEGUROS = { 4:"Campamento base", 9:"Refugio", 14:"Cumbre" };
+// Nivel de dificultad de cada escalón: 1 Muy fácil · 2 Fácil · 3 Media · 4 Difícil · 5 Experto.
+const NIVELES = [1,1,1, 2,2,2, 3,3,3, 4,4,4, 5,5,5];
+const NOMBRE_NIVEL = ['','Muy fácil','Fácil','Media','Difícil','Experto'];
+// Primer día del reto (año, mes-1, día): sirve para numerar los retos.
+const INICIO = new Date(2026, 10, 10);
+// Pestaña de la hoja de puntajes de este juego (no cambiar).
+const JUEGO = "cumbre";
+// =====================================================
+
+const LETRAS = ['A','B','C','D'];
+let BANCO = [];   // [nivel, tema, pregunta, correcta, inc1, inc2, inc3, pista, explicación]
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+const ls = {get(k){try{return localStorage.getItem(k);}catch(e){return null;}}, set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const pad = n => String(n).padStart(2,'0');
+const now = new Date(), FECHA = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`, YMD = Number(FECHA.replace(/-/g,''));
+const dayNo = Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate()) - INICIO)/864e5) + 1;
+const KEY = 'cumbre-tuc-v1-' + FECHA;
+let jugador = ls.get('ubica-cr-jugador') || '';
+
+// ---------- azar determinístico ----------
+function hashStr(s){let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;}
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function shuffle(arr,r){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// Selección del día: 5 preguntas por nivel más 1 de reserva por nivel (para el comodín «Cambiar pregunta»)
+function pickDay(seed){const r=rng(hashStr(seed));for(let k=0;k<5;k++)r();const sel={};
+  for(const lv of [1,2,3,4,5]){const pool=BANCO.map((q,i)=>i).filter(i=>BANCO[i][0]===lv);sel[lv]=shuffle(pool,r).slice(0,6);}
+  const used={1:0,2:0,3:0,4:0,5:0};const main=NIVELES.map(lv=>sel[lv][used[lv]++]);
+  const reserve={};for(const lv of [1,2,3,4,5])reserve[lv]=sel[lv].find(i=>!main.includes(i));return {main,reserve};}
+// Opciones barajadas de forma estable para cada pregunta y día
+function optionsOf(qi,seed){const q=BANCO[qi];const r=rng(hashStr(seed+'|'+q[2]));
+  const opts=shuffle([0,1,2,3],r).map(k=>({text:q[3+k],ok:k===0}));return opts;}
+// Para 50:50: las dos incorrectas que se ocultan, también estables
+function fiftyOf(opts,seed,qi){const r=rng(hashStr(seed+'|5050|'+qi));const wrong=opts.map((o,i)=>o.ok?-1:i).filter(i=>i>=0);return shuffle(wrong,r).slice(0,2);}
+
+// ---------- estado ----------
+let state=null;
+function blankLife(meet){const l={c50:false,pista:false,cambio:false};if(meet)l.sala=false;return l;}
+function start(mode){
+  stopTimer();setModeButtons(mode);document.body.classList.toggle('reunion',mode==='meet');
+  const daily=mode==='daily';const seed=daily?String(YMD):String(Math.random());
+  const {main,reserve}=pickDay(seed);
+  state={mode,seed,qs:main.slice(),reserve,step:0,life:blankLife(!daily),hidden:{},hintShown:{},swapped:null,sel:null,phase:'intro',log:[],end:null,sent:false,cur:null,paused:false};
+  if(daily){let s=null;try{s=JSON.parse(ls.get(KEY)||'null');}catch(e){}
+    if(s){Object.assign(state,{qs:s.qs||state.qs,step:s.step||0,life:s.life||state.life,hidden:s.hidden||{},hintShown:s.hintShown||{},swapped:s.swapped??null,log:s.log||[],end:s.end||null,sent:!!s.sent});
+      if(!state.end&&s.cur===state.step){finish('tiempo',true);} // se recargó o salió durante una pregunta
+      if(state.end)state.phase='end';}
+    if(!jugador&&state.step===0&&!state.end)state.phase='name';}
+  document.getElementById('dayLabel').textContent=daily?`N.º ${dayNo} · ${now.toLocaleDateString('es-CR',{day:'numeric',month:'short'})}`:'modo reunión';
+  render();
+  if(state.phase==='end'&&daily&&!state.sent)submit();
+}
+function save(){if(state.mode!=='daily')return;const {qs,step,life,hidden,hintShown,swapped,log,end,sent,cur}=state;ls.set(KEY,JSON.stringify({qs,step,life,hidden,hintShown,swapped,log,end,sent,cur}));}
+const seguroAlcanzado=step=>{let m=0;for(const k of Object.keys(SEGUROS).map(Number))if(k<step)m=Math.max(m,ESCALERA[k]);return m;};
+const altitudActual=()=>state.step>0?ESCALERA[state.step-1]:0;
+function begin(){state.phase='ask';state.sel=null;render();startTimer();}
+function choose(i){if(state.phase!=='ask')return;if((state.hidden[state.step]||[]).includes(i))return;state.sel=i;render();}
+function confirmAnswer(){if(state.phase!=='ask'||state.sel==null)return;stopTimer();const opts=curOpts();const ok=opts[state.sel].ok;
+  state.log.push({q:state.qs[state.step],ok,sel:state.sel});state.cur=null;
+  if(ok){state.step++;if(state.step>=ESCALERA.length){finish('cumbre');return;}state.phase='reveal';save();render();}
+  else finish('error');}
+function finish(reason,silent){stopTimer();
+  if(reason==='tiempo'&&!state.log[state.step])state.log.push({q:state.qs[state.step],ok:false,sel:null});
+  const metros=reason==='cumbre'?ESCALERA[ESCALERA.length-1]:reason==='retiro'?altitudActual():seguroAlcanzado(state.step);
+  state.end={reason,metros,step:state.step};state.cur=null;state.phase=reason==='cumbre'||reason==='retiro'?'end':'reveal';save();
+  if(silent){state.phase='end';return;}
+  render();if(state.phase==='end'&&state.mode==='daily'&&!state.sent)submit();}
+function next(){if(state.end){state.phase='end';render();if(state.mode==='daily'&&!state.sent)submit();return;}state.phase='ask';state.sel=null;render();startTimer();}
+function retire(){if(state.phase!=='ask')return;finish('retiro');}
+const curQ=()=>BANCO[state.qs[state.step]];
+const curOpts=()=>optionsOf(state.qs[state.step],state.seed);
+
+// ---------- comodines ----------
+function useLife(k){if(state.phase!=='ask'||state.life[k])return;state.life[k]=true;
+  if(k==='c50'){state.hidden[state.step]=fiftyOf(curOpts(),state.seed,state.qs[state.step]);if(state.hidden[state.step].includes(state.sel))state.sel=null;}
+  if(k==='pista')state.hintShown[state.step]=true;
+  if(k==='cambio'){const lv=NIVELES[state.step];state.qs[state.step]=state.reserve[lv];state.swapped=state.step;state.sel=null;delete state.hidden[state.step];delete state.hintShown[state.step];}
+  if(k==='sala'){state.paused=!state.paused;}
+  save();render();}
+
+// ---------- cronómetro ----------
+let timer={id:null,deadline:0,left:0};
+const limite=()=>state.mode==='meet'?TIEMPO_REUNION:TIEMPO;
+function startTimer(){stopTimer();if(!limite())return;timer.deadline=Date.now()+limite()*1000;
+  if(state.mode==='daily'){state.cur=state.step;save();}timer.id=setInterval(tick,100);tick();}
+function stopTimer(){if(timer.id)clearInterval(timer.id);timer.id=null;}
+function tick(){if(!timer.id)return;
+  if(state.paused){timer.deadline=Date.now()+timer.left;}else timer.left=Math.max(0,timer.deadline-Date.now());
+  const left=timer.left,f=left/(limite()*1000),cls=state.paused?'paused':f<=.2?'urgent':f<=.5?'warn':'';
+  const box=document.getElementById('tBox');
+  if(box){box.className='timer '+cls;document.getElementById('tFill').style.transform=`scaleX(${f})`;document.getElementById('tSecs').textContent=state.paused?'pausa':(left/1000).toFixed(1)+' s';}
+  if(left<=0&&!state.paused){stopTimer();finish('tiempo');}}
+
+// ---------- vistas ----------
+function setModeButtons(m){[['mDaily','daily'],['mMeet','meet'],['mBoard','board']].forEach(([id,v])=>document.getElementById(id).setAttribute('aria-pressed',m===v));}
+function renderWho(){document.getElementById('who').innerHTML=jugador?`Jugador: <b>${esc(jugador)}</b>${state&&state.phase==='ask'?'':' <button class="linkbtn" id="chName">cambiar</button>'}`:'';
+  const b=document.getElementById('chName');if(b)b.onclick=()=>{stopTimer();state.prev=state.phase;state.phase='name';state.changing=true;render();};}
+function renderLadder(){const ul=document.getElementById('steps');
+  ul.innerHTML=ESCALERA.map((m,i)=>{const cls=[SEGUROS[i]?'safe':'',i<state.step?'done':'',(i===state.step&&!state.end&&state.phase!=='name')?'cur':'',i===ESCALERA.length-1?'top':''].join(' ');
+    return `<li class="${cls}"><span class="n">${i+1}</span><span class="lbl">${SEGUROS[i]||''}</span><span class="m">${fmt(m)} m</span></li>`;}).join('');}
+function stripHTML(){return `<div class="strip"><span>Pregunta <b>${Math.min(state.step+1,15)}</b> de 15</span><span>Altitud <b>${fmt(altitudActual())} m</b></span><span>Seguro <b>${fmt(seguroAlcanzado(state.step))} m</b></span></div>`;}
+function foot(){return `<div class="foot">${limite()?`${limite()} s por pregunta. `:''}Si fallás, bajás al último campamento. Podés retirarte y quedarte con la altitud alcanzada. Banco: ${BANCO.length} preguntas.</div>`;}
+function render(){renderWho();renderLadder();const st=document.getElementById('stage');
+  if(state.phase==='name'){
+    st.innerHTML=`<span class="lead">${state.changing?'Cambiar nombre':'Antes de empezar'}</span><h1 class="title">¿Cómo te llamás?</h1>
+      <form id="fName" class="field"><label for="inName">Nombre para la tabla de posiciones</label>
+      <input id="inName" maxlength="40" autocomplete="name" value="${esc(jugador)}" placeholder="Ej.: Ana Mora" required>
+      <span class="hint">Es el mismo nombre que usás en Ubicá CR.</span>
+      <button class="btn" type="submit">Guardar</button></form>`;
+    document.getElementById('inName').focus();
+    document.getElementById('fName').onsubmit=e=>{e.preventDefault();const v=document.getElementById('inName').value.trim().replace(/\s+/g,' ');if(!v)return;jugador=v;ls.set('ubica-cr-jugador',v);start('daily');};
+    return;}
+  if(state.phase==='board')return renderBoard(st);
+  if(state.phase==='intro'){const daily=state.mode==='daily',nuevo=state.step===0;
+    st.innerHTML=`${stripHTML()}<span class="lead">${daily?(nuevo?`Reto N.º ${dayNo}`:'Reto en curso'):'Para proyectar en las reuniones de Transformando UC'}</span>
+      <h1 class="title">${daily?(nuevo?'15 preguntas hasta la cumbre del Chirripó':`Vas por la pregunta ${state.step+1} de 15`):'Modo reunión'}</h1>
+      <ul class="rules">
+        <li>Preguntas de cultura general que van de muy fáciles a nivel experto. Cada respuesta correcta te sube un escalón, de 100 m a ${fmt(ESCALERA[14])} m.</li>
+        <li>Los campamentos de ${fmt(ESCALERA[4])} m y ${fmt(ESCALERA[9])} m son seguros: si fallás, bajás al último que alcanzaste.</li>
+        <li>Antes de responder podés retirarte y quedarte con la altitud que llevás.</li>
+        <li>Comodines, uno de cada uno por partida: <b>50:50</b>, <b>Pista</b> y <b>Cambiar pregunta</b>${daily?'':' y, en este modo, <b>Consulta a la sala</b>, que pausa el cronómetro para votar a mano alzada'}.</li>
+        ${daily?`<li>${TIEMPO} segundos por pregunta. El cronómetro empieza cuando pulsás <b>${nuevo?'Empezar el ascenso':'Continuar'}</b>. Recargar o salir durante una pregunta cuenta como respuesta incorrecta.</li><li>Un intento por persona y por día. Todos responden las mismas preguntas.</li>`:`<li>Las preguntas son al azar y nada se registra en la tabla. Teclas: A–D para elegir y Enter para confirmar.</li>`}
+      </ul>
+      <div class="row"><button class="btn" id="bStart">${daily&&!nuevo?'Continuar':'Empezar el ascenso'}</button>
+      ${daily&&nuevo?'<button class="btn ghost" id="bMeet">Probar en modo reunión</button>':''}</div>${foot()}`;
+    document.getElementById('bStart').onclick=begin;const bm=document.getElementById('bMeet');if(bm)bm.onclick=()=>start('meet');return;}
+  if(state.phase==='ask'||state.phase==='reveal'){
+    const rev=state.phase==='reveal',q=curQ(),opts=curOpts(),hid=state.hidden[rev?state.log.length-1:state.step]||[];
+    const last=state.log[state.log.length-1];
+    const cls=i=>{if(!rev)return (i===state.sel?'sel':'')+(hid.includes(i)?' gone':'');const sel=last&&last.sel;
+      if(opts[i].ok)return 'ok';if(i===sel)return 'no';return hid.includes(i)?'gone':'';};
+    // en revelado, la pregunta mostrada es la recién respondida
+    let qq=q,oo=opts;if(rev){qq=BANCO[last.q];oo=optionsOf(last.q,state.seed);}
+    const lifeBtn=(k,label,aria)=>`<button class="life" id="L_${k}" ${state.life[k]&&k!=='sala'||rev?'disabled':''} aria-label="${aria}">${label}</button>`;
+    const stepShown=rev?state.log.length-1:state.step;
+    st.innerHTML=`${stripHTML()}<div class="meta"><span>Pregunta ${stepShown+1} de 15 · por ${fmt(ESCALERA[stepShown])} m</span><span>${NOMBRE_NIVEL[NIVELES[stepShown]]}</span></div>
+      ${!rev&&limite()?`<div class="timer" id="tBox"><span class="track"><span class="fill" id="tFill"></span></span><span class="secs" id="tSecs">${limite().toFixed(1)} s</span></div>`:''}
+      <div class="qcard"><span class="tema">${esc(qq[1])}</span><h2>${esc(qq[2])}</h2></div>
+      ${state.paused&&!rev?`<div class="vote">${LETRAS.map(l=>`<div>${l}</div>`).join('')}</div><p class="hint">Votación a mano alzada: el cronómetro está en pausa. Pulsá «Reanudar» para seguir.</p>`:''}
+      <div class="opts">${oo.map((o,i)=>`<button class="opt ${cls(i)}" data-i="${i}" ${rev?'disabled':''}><span class="k">${LETRAS[i]}</span><span>${esc(o.text)}</span></button>`).join('')}</div>
+      ${!rev&&state.hintShown[state.step]?`<div class="hintbox"><b>Pista:</b> ${esc(q[7])}</div>`:''}
+      ${rev?`<div class="verdict"><span class="v ${last.ok?'ok':'no'}">${last.ok?'¡Correcto!':state.end&&state.end.reason==='tiempo'?'Se acabó el tiempo':'Incorrecto'}</span>
+          <span class="alt">${last.ok?`Subiste a ${fmt(ESCALERA[stepShown])} m`:`Bajás a ${fmt(state.end.metros)} m`}</span></div>
+        <p class="expl">${esc(qq[8])}</p>
+        <div class="row"><button class="btn" id="bNext">${state.end?'Ver resultado':'Siguiente pregunta'}</button></div>`
+      :`<div class="lifelines">${lifeBtn('c50','<b>50:50</b>','Comodín 50:50')}${lifeBtn('pista','Pista','Comodín pista')}${lifeBtn('cambio','Cambiar pregunta','Comodín cambiar pregunta')}${state.mode==='meet'?`<button class="life" id="L_sala" ${state.life.sala===true&&!state.paused?'disabled':''}>${state.paused?'Reanudar':'Consulta a la sala'}</button>`:''}</div>
+        <div class="row"><button class="btn wide" id="bOk" ${state.sel==null?'disabled':''}>${state.sel==null?'Elegí una respuesta':`Confirmar ${LETRAS[state.sel]}`}</button>
+        <button class="btn ghost" id="bRetire">${state.step===0?'Retirarme':`Retirarme con ${fmt(altitudActual())} m`}</button></div>`}
+      ${foot()}`;
+    st.querySelectorAll('.opt').forEach(b=>b.onclick=()=>choose(Number(b.dataset.i)));
+    if(rev){const b=document.getElementById('bNext');b.onclick=next;b.focus({preventScroll:true});}
+    else{document.getElementById('bOk').onclick=confirmAnswer;document.getElementById('bRetire').onclick=retire;
+      ['c50','pista','cambio','sala'].forEach(k=>{const b=document.getElementById('L_'+k);if(b)b.onclick=()=>{if(k==='sala'&&state.paused){state.paused=false;render();return;}useLife(k);};});tick();}
+    return;}
+  if(state.phase==='end'){const e=state.end,daily=state.mode==='daily';
+    const txt={cumbre:'¡Llegaste a la cumbre!',retiro:'Te retiraste a tiempo',error:'Respuesta incorrecta',tiempo:'Se acabó el tiempo'}[e.reason];
+    const share=`Cumbre TUC ${daily?'N.º '+dayNo:'(reunión)'}\n⛰️ ${fmt(e.metros)} m · ${state.log.filter(x=>x.ok).length} de 15\n${state.log.map(x=>x.ok?'🟩':'🟥').join('')}`;
+    st.innerHTML=`${stripHTML()}<span class="lead">${daily?`Reto N.º ${dayNo}`:'Modo reunión'} · ${txt}</span>
+      <div class="big">${fmt(e.metros)}<span> m</span></div>
+      <p class="expl">${e.reason==='cumbre'?'Respondiste las 15 preguntas.':e.reason==='retiro'?`Respondiste ${state.step} preguntas y te quedaste con la altitud alcanzada.`:`Llegaste hasta la pregunta ${e.step+1}${e.metros?` y bajaste al campamento de ${fmt(e.metros)} m`:' y volviste al punto de partida'}.`}</p>
+      ${daily?statusHTML():''}
+      <div class="share" id="shareBox">${esc(share)}</div>
+      <div class="row"><button class="btn" id="bCopy">Copiar resultado</button>${daily?'<button class="btn ghost" id="bBoard">Ver posiciones</button><button class="btn ghost" id="bMeet2">Modo reunión</button>':'<button class="btn ghost" id="bAgain">Otra partida</button><button class="btn ghost" id="bDaily">Ir al reto diario</button>'}</div>
+      ${daily?'<p class="hint">Mañana hay 15 preguntas nuevas.</p>':''}${foot()}`;
+    document.getElementById('bCopy').onclick=async ev=>{try{await navigator.clipboard.writeText(share);ev.target.textContent='Copiado';}catch(err){const s=getSelection(),rg=document.createRange();rg.selectNodeContents(document.getElementById('shareBox'));s.removeAllRanges();s.addRange(rg);ev.target.textContent='Texto seleccionado: copialo';}};
+    const g=id=>document.getElementById(id);if(g('bBoard'))g('bBoard').onclick=openBoard;if(g('bMeet2'))g('bMeet2').onclick=()=>start('meet');
+    if(g('bAgain'))g('bAgain').onclick=()=>start('meet');if(g('bDaily'))g('bDaily').onclick=()=>start('daily');
+    const rt=g('bRetry');if(rt)rt.onclick=submit;}
+}
+
+// ---------- tabla de posiciones ----------
+let sendStatus='';
+function statusHTML(){const m={sending:'<div class="status">Enviando tu altitud…</div>',ok:'<div class="status ok">Altitud registrada en la tabla de posiciones.</div>',dup:'<div class="status ok">Ya habías registrado el reto de hoy.</div>',nocfg:'<div class="status">La tabla de posiciones no está configurada; el resultado queda solo en este navegador.</div>',noname:'<div class="status err">Falta tu nombre para registrar el resultado.</div>'};
+  if(sendStatus.startsWith('err:'))return `<div class="status err">No se registró: ${esc(sendStatus.slice(4))}. <button class="linkbtn" id="bRetry">Reintentar</button></div>`;return m[sendStatus]||'';}
+async function submit(){if(!SCRIPT_URL){sendStatus='nocfg';if(state.phase==='end')render();return;}if(!jugador){sendStatus='noname';render();return;}
+  sendStatus='sending';if(state.phase==='end')render();
+  const e=state.end;const usados=Object.entries(state.life).filter(([k,v])=>v).map(([k])=>({c50:'50:50',pista:'pista',cambio:'cambio'}[k])).filter(Boolean);
+  const body={accion:'guardar',juego:JUEGO,fecha:FECHA,reto:dayNo,jugador,puntos:e.metros,
+    detalle:`${{cumbre:'Cumbre',retiro:'Se retiró',error:'Falló',tiempo:'Sin tiempo'}[e.reason]} en la pregunta ${Math.min(e.step+1,15)} | correctas: ${state.log.filter(x=>x.ok).length} | comodines: ${usados.join(', ')||'ninguno'}`};
+  try{const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});const j=await res.json();
+    if(j.ok||j.error==='duplicado'){state.sent=true;save();sendStatus=j.ok?'ok':'dup';}else sendStatus='err:'+(j.mensaje||j.error||'respuesta inesperada');}
+  catch(err){sendStatus='err:no se pudo conectar con la hoja';}
+  if(state.phase==='end')render();}
+let boardTab='hoy',boardData=null,boardErr='';
+async function openBoard(){stopTimer();setModeButtons('board');state.prevPhase=state.phase;state.phase='board';boardData=null;boardErr='';render();
+  if(!SCRIPT_URL){boardErr='La tabla de posiciones todavía no está configurada (falta SCRIPT_URL en index.html).';render();return;}
+  try{const res=await fetch(`${SCRIPT_URL}?accion=tabla&juego=${JUEGO}&fecha=${FECHA}`);boardData=await res.json();if(!boardData.ok)boardErr=boardData.mensaje||'Error al leer la hoja.';}
+  catch(e){boardErr='No se pudo conectar con la hoja de posiciones.';}
+  if(state.phase==='board')render();}
+function renderBoard(st){let body='<p class="hint">Cargando posiciones…</p>';
+  if(boardErr)body=`<div class="status err">${esc(boardErr)}</div>`;
+  else if(boardData){const me=r=>r.jugador.toLowerCase()===jugador.toLowerCase()?'me':'';
+    if(boardTab==='hoy'){const rows=boardData.hoy||[];body=rows.length?`<table class="board"><thead><tr><th>#</th><th>Jugador</th><th class="n">Altitud</th></tr></thead><tbody>${rows.map((r,k)=>`<tr class="${me(r)}"><td>${k+1}</td><td>${esc(r.jugador)}</td><td class="n">${fmt(r.puntos)} m</td></tr>`).join('')}</tbody></table>`:'<p class="hint">Nadie ha completado el reto de hoy todavía.</p>';}
+    else{const rows=boardData.mes||[];body=rows.length?`<table class="board"><thead><tr><th>#</th><th>Jugador</th><th class="n">Días</th><th class="n">Metros acumulados</th></tr></thead><tbody>${rows.map((r,k)=>`<tr class="${me(r)}"><td>${k+1}</td><td>${esc(r.jugador)}</td><td class="n">${r.dias}</td><td class="n">${fmt(r.total)} m</td></tr>`).join('')}</tbody></table>`:'<p class="hint">Todavía no hay resultados este mes.</p>';}}
+  st.innerHTML=`<span class="lead">Unidad de Cartografía</span><h1 class="title">Posiciones</h1>
+    <div class="tabs" role="tablist"><button role="tab" id="tHoy" aria-selected="${boardTab==='hoy'}">Hoy</button><button role="tab" id="tMes" aria-selected="${boardTab==='mes'}">Este mes</button></div>
+    ${body}<div class="row"><button class="btn ghost" id="bBack">Volver al juego</button></div>`;
+  document.getElementById('tHoy').onclick=()=>{boardTab='hoy';render();};document.getElementById('tMes').onclick=()=>{boardTab='mes';render();};
+  document.getElementById('bBack').onclick=()=>start('daily');}
+
+// ---------- teclado (útil al proyectar) ----------
+document.addEventListener('keydown',e=>{if(!state||e.target.tagName==='INPUT')return;const k=e.key.toUpperCase();
+  if(state.phase==='ask'&&LETRAS.includes(k)){choose(LETRAS.indexOf(k));e.preventDefault();}
+  else if(e.key==='Enter'&&state.phase==='ask'&&state.sel!=null){confirmAnswer();e.preventDefault();}});
+
+// ---------- arranque: preguntas del archivo más las de la pestaña «Preguntas» de la hoja ----------
+document.getElementById('mDaily').onclick=()=>start('daily');
+document.getElementById('mMeet').onclick=()=>start('meet');
+document.getElementById('mBoard').onclick=openBoard;
+async function loadBank(){const vistos=new Set(),out=[];
+  const add=q=>{if(!q||q.length<9)return;const lv=Number(q[0]);if(![1,2,3,4,5].includes(lv))return;if(q.slice(2,7).some(x=>!String(x||'').trim()))return;
+    const k=String(q[2]).trim().toLowerCase();if(vistos.has(k))return;vistos.add(k);out.push([lv,...q.slice(1,9).map(x=>String(x??'').trim())]);};
+  (window.PREGUNTAS||[]).forEach(add);
+  if(SCRIPT_URL){try{const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),5000);
+    const res=await fetch(`${SCRIPT_URL}?accion=preguntas`,{signal:ctl.signal});clearTimeout(t);const j=await res.json();if(j.ok&&Array.isArray(j.preguntas))j.preguntas.forEach(add);}catch(e){console.warn('No se leyeron preguntas de la hoja',e);}}
+  BANCO=out;}
+document.getElementById('stage').innerHTML='<p class="hint">Cargando preguntas…</p>';
+state={mode:'daily',step:0,phase:'loading',life:{},log:[]};
+loadBank().then(()=>start('daily'));
+</script>
+</body>
+</html>
