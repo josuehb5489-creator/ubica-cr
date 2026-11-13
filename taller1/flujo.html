@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ordená el flujo · Taller 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="estilos.css">
+<style>
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:2.2em minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--panel);border:1.5px solid var(--rule);border-radius:10px;padding:12px 14px;cursor:grab;user-select:none}
+.item.drag{opacity:.45}
+.item.over{border-color:var(--accent);background:var(--accent-soft)}
+.item .pos{font:600 20px var(--f-display);color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.item .t{font-weight:700}
+.item .d{font-size:14px;color:var(--muted)}
+.mv{display:flex;flex-direction:column;gap:4px}
+.mv button{width:34px;height:28px;border-radius:6px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);cursor:pointer;font-size:14px}
+.mv button:disabled{opacity:.3;cursor:default}
+table.res{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--rule);border-radius:12px;overflow:hidden}
+table.res th{font:500 11px var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule)}
+table.res td{padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:middle}
+table.res td.n{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.heat{display:grid;gap:2px}
+.heat span{height:22px;border-radius:3px;background:var(--accent);font:500 11px var(--f-mono);color:var(--ink);display:flex;align-items:center;justify-content:center}
+.heat span.right{outline:2px solid var(--good);outline-offset:-2px}
+.ok{color:var(--good);font-weight:700}.no{color:var(--bad);font-weight:700}
+.tablewrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<main><div class="wrap" id="app"></div></main>
+<script src="config.js"></script>
+<script src="comun.js"></script>
+<script>
+const {T,esc,ls}=TL;const E=T.ETAPAS,N=E.length;
+const vista=TL.header('Ordená el flujo');
+const app=document.getElementById('app');
+const EI=E.map((e,i)=>({...e,i}));const byId=Object.fromEntries(EI.map(e=>[e.id,e]));
+
+// ================= participante =================
+function participante(){
+  // orden inicial desordenado, estable para cada persona; si ya envió, se recupera su orden
+  let orden=null;try{orden=JSON.parse(ls.get('flujo-'+T.SESION)||'null');}catch(e){}
+  if(!orden||orden.length!==N||orden.some(id=>!byId[id])){const r=TL.seeded(TL.pid);orden=E.map(e=>e.id);
+    for(let i=N-1;i>0;i--){const j=Math.floor(r()*(i+1));[orden[i],orden[j]]=[orden[j],orden[i]];}
+    if(orden.every((id,i)=>id===E[i].id))orden.reverse();}
+  let enviado=!!ls.get('flujo-env-'+T.SESION),msg='';
+  function render(){
+    app.innerHTML=`<p class="lead">Actividad 1 · individual</p><h1>Ordená el flujo de actualización del MGN</h1>
+      <p class="muted">Arrastrá las tarjetas, o usá las flechas, hasta dejarlas en el orden en que creés que ocurren las etapas. No hay penalización: el objetivo es ver dónde el flujo genera dudas.</p>
+      ${TL.demo?'<span class="demo">Modo demostración · sin hoja conectada</span>':''}
+      <ol class="list" id="list">${orden.map((id,k)=>`<li class="item" draggable="true" data-k="${k}">
+        <span class="pos">${k+1}</span><span><span class="t">${esc(byId[id].t)}</span><br><span class="d">${esc(byId[id].d)}</span></span>
+        <span class="mv"><button data-up="${k}" ${k===0?'disabled':''} aria-label="Subir ${esc(byId[id].t)}">▲</button><button data-dn="${k}" ${k===N-1?'disabled':''} aria-label="Bajar ${esc(byId[id].t)}">▼</button></span></li>`).join('')}</ol>
+      <div class="card" style="max-width:420px">${TL.procesoHTML()}</div>
+      <div class="row"><button class="btn" id="bSend">${enviado?'Enviar de nuevo':'Enviar mi orden'}</button></div>
+      ${msg}<p class="hint">El orden correcto se revela en la pantalla compartida al final de la actividad.</p>`;
+    TL.bindProceso();
+    app.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>move(+b.dataset.up,-1));
+    app.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>move(+b.dataset.dn,1));
+    let from=null;
+    app.querySelectorAll('.item').forEach(li=>{
+      li.addEventListener('dragstart',e=>{from=+li.dataset.k;li.classList.add('drag');e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',li.dataset.k);}catch(_){}});
+      li.addEventListener('dragend',()=>li.classList.remove('drag'));
+      li.addEventListener('dragover',e=>{e.preventDefault();li.classList.add('over');});
+      li.addEventListener('dragleave',()=>li.classList.remove('over'));
+      li.addEventListener('drop',e=>{e.preventDefault();const to=+li.dataset.k;if(from!=null&&from!==to){const [x]=orden.splice(from,1);orden.splice(to,0,x);save();render();}});
+    });
+    document.getElementById('bSend').onclick=send;
+  }
+  function move(k,d){const j=k+d;if(j<0||j>=N)return;[orden[k],orden[j]]=[orden[j],orden[k]];save();render();
+    const b=app.querySelector(`[data-${d<0?'up':'dn'}="${j}"]`);if(b&&!b.disabled)b.focus();}
+  function save(){ls.set('flujo-'+T.SESION,JSON.stringify(orden));}
+  async function send(){const b=document.getElementById('bSend');b.disabled=true;b.textContent='Enviando…';
+    try{const j=await TL.enviar('orden',[orden.join(' > ')]);if(!j.ok)throw new Error(j.mensaje||j.error);
+      enviado=true;ls.set('flujo-env-'+T.SESION,'1');msg='<div class="status ok">Listo, tu orden quedó registrado. Si lo cambiás, podés enviarlo de nuevo: cuenta el último.</div>';}
+    catch(e){msg=`<div class="status err">No se pudo enviar: ${esc(e.message)}. Probá de nuevo.</div>`;}
+    render();}
+  render();
+}
+
+// ================= facilitador =================
+function ejemplo(){ // respuestas de ejemplo para el modo demostración
+  const r=TL.seeded('demo-flujo'),filas=[];
+  for(let p=0;p<14;p++){const o=E.map(e=>e.id);const swaps=Math.floor(r()*3);
+    for(let s=0;s<swaps;s++){const i=Math.floor(r()*(N-1));[o[i],o[i+1]]=[o[i+1],o[i]];}
+    if(r()<.35){const a=o.indexOf('muestreo'),b=o.indexOf('cierre');[o[a],o[b]]=[o[b],o[a]];}
+    filas.push({ts:'2026-11-01T00:00:0'+p,pid:'demo'+p,proceso:T.PROCESOS[p%6],campos:[o.join(' > ')]});}
+  return filas;
+}
+function facilitador(){
+  let revelar=false,filas=[],err='';
+  async function cargar(){try{const f=await TL.leer('orden');filas=TL.demo&&!f.length?ejemplo():f;err='';}catch(e){err=e.message;}render();}
+  function render(){
+    const res=TL.ultimas(filas).map(f=>String(f.campos[0]||'').split(' > ')).filter(o=>o.length===N&&o.every(id=>byId[id]));
+    const n=res.length;
+    const pos={};E.forEach(e=>pos[e.id]=Array(N).fill(0));res.forEach(o=>o.forEach((id,k)=>pos[id][k]++));
+    const prom=id=>n?res.reduce((a,o)=>a+o.indexOf(id),0)/n:0;
+    const perfectos=res.filter(o=>o.every((id,k)=>id===E[k].id)).length;
+    const acierto=n?res.reduce((a,o)=>a+o.filter((id,k)=>id===E[k].id).length,0)/(n*N):0;
+    // orden que propone el grupo: por posición promedio
+    const grupo=[...EI].sort((a,b)=>prom(a.id)-prom(b.id));
+    const filasT=(revelar?EI:grupo).map((e,k)=>{const c=pos[e.id],ok=n?c[e.i]/n:0,max=Math.max(1,...c);
+      return `<tr><td class="n">${revelar?e.i+1:k+1}</td><td><b>${esc(e.t)}</b>${revelar?`<br><span class="hint">El grupo la ubicó en promedio en la posición ${(prom(e.id)+1).toFixed(1).replace('.',',')}</span>`:''}</td>
+        <td><div class="heat" style="grid-template-columns:repeat(${N},minmax(22px,1fr))">${c.map((v,j)=>`<span class="${revelar&&j===e.i?'right':''}" style="opacity:${v?0.15+0.85*v/max:0.06}" title="Posición ${j+1}: ${v}">${v||''}</span>`).join('')}</div></td>
+        <td class="n">${revelar?`<span class="${ok>=.6?'ok':ok<.4?'no':''}">${Math.round(ok*100)} %</span>`:(prom(e.id)+1).toFixed(1).replace('.',',')}</td></tr>`;}).join('');
+    app.innerHTML=`<p class="lead">Vista del facilitador · se actualiza cada 5 segundos</p><h1>Ordená el flujo · resultados</h1>
+      ${TL.demo?'<span class="demo">Datos de ejemplo · conectá la hoja para ver las respuestas reales</span>':''}
+      ${err?`<div class="status err">No se pudieron leer las respuestas: ${esc(err)}</div>`:''}
+      <div class="kpis"><div class="kpi"><b>${n}</b><span>respuestas</span></div>
+        ${revelar?`<div class="kpi"><b>${perfectos}</b><span>con el orden exacto</span></div><div class="kpi"><b>${Math.round(acierto*100)} %</b><span>de etapas bien ubicadas</span></div>`:''}</div>
+      <div class="row"><button class="btn${revelar?' ghost':''}" id="bRev">${revelar?'Ocultar el orden correcto':'Revelar el orden correcto'}</button></div>
+      <p class="muted">${revelar?'Orden correcto del flujo. La casilla con borde verde es la posición correcta; los números indican cuántas personas pusieron la etapa en cada posición.':'Orden que propone el grupo, según la posición promedio de cada etapa. Cada fila muestra cuántas personas pusieron esa etapa en cada posición, de 1 a '+N+'.'}</p>
+      <div class="tablewrap"><table class="res"><thead><tr><th>#</th><th>Etapa</th><th>Posiciones elegidas (1 a ${N})</th><th style="text-align:right">${revelar?'Bien ubicada':'Posición promedio'}</th></tr></thead><tbody>${filasT}</tbody></table></div>
+      ${revelar?`<p class="hint">Para la conversación: las etapas con menor porcentaje de acierto suelen ser los puntos de fricción del flujo.</p>`:''}`;
+    document.getElementById('bRev').onclick=()=>{revelar=!revelar;render();};
+  }
+  render();TL.enVivo(cargar,5000);
+}
+vista==='fac'?facilitador():participante();
+</script>
+</body>
+</html>

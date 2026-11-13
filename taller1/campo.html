@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>¿Campo u oficina? · Taller 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="estilos.css">
+<style>
+:root{--campo:#2f7a4b;--oficina:#1d4e89;--depende:#b07a12}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--campo:#6cc28d;--oficina:#7fb2ee;--depende:#e0b04f}}
+:root[data-theme="dark"]{--campo:#6cc28d;--oficina:#7fb2ee;--depende:#e0b04f}
+.case{gap:12px}
+.case .num{font:500 12px var(--f-mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ch{font:700 16px var(--f-body);padding:12px 10px;border-radius:10px;border:1.5px solid var(--rule);background:var(--paper);color:var(--ink);cursor:pointer}
+.ch[aria-pressed="true"].campo{border-color:var(--campo);background:var(--good-soft)}
+.ch[aria-pressed="true"].oficina{border-color:var(--oficina);background:var(--truth-soft)}
+.ch[aria-pressed="true"].depende{border-color:var(--depende);background:var(--mid-soft)}
+.saved{font-size:13px;color:var(--good)}
+.progress{height:8px;border-radius:4px;background:var(--rule);overflow:hidden}
+.progress span{display:block;height:100%;background:var(--accent)}
+.stack{display:flex;height:46px;border-radius:8px;overflow:hidden;background:var(--rule)}
+.stack span{display:flex;align-items:center;justify-content:center;color:#fff;font:700 16px var(--f-body);min-width:0;white-space:nowrap;overflow:hidden}
+.stack .campo{background:var(--campo)}.stack .oficina{background:var(--oficina)}.stack .depende{background:var(--depende)}
+:root:not([data-theme="light"]) .stack span{color:#fff}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.big{font-family:var(--f-display);font-weight:700;font-size:46px;line-height:1.05;text-wrap:balance}
+.matriz{background:var(--truth-soft);border-radius:10px;padding:14px 16px;font-size:18px}
+.matriz.pend{background:var(--mid-soft)}
+.comments{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.comments li{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:15px}
+.comments .tag{font:600 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase;margin-right:6px}
+table.res{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--rule)}
+table.res th{font:500 11px var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+table.res td{padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:middle}
+table.res tr{cursor:pointer}
+table.res tr.cur td{background:var(--accent-soft)}
+table.res .n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.minibar{display:flex;height:12px;border-radius:3px;overflow:hidden;background:var(--rule);min-width:120px}
+.minibar span.campo{background:var(--campo)}.minibar span.oficina{background:var(--oficina)}.minibar span.depende{background:var(--depende)}
+.facgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+.tablewrap{overflow-x:auto}
+@media (max-width:900px){.facgrid{grid-template-columns:1fr}.big{font-size:34px}}
+</style>
+</head>
+<body>
+<main><div class="wrap" id="app"></div></main>
+<script src="config.js"></script>
+<script src="comun.js"></script>
+<script>
+const {T,esc,ls}=TL;const C=T.CASOS;
+const OPC=[['campo','Campo'],['oficina','Oficina'],['depende','Depende']];
+const vista=TL.header('¿Campo u oficina?');
+if(vista==='fac')document.querySelector('main .wrap').classList.add('wide');
+const app=document.getElementById('app');
+
+// ================= participante =================
+function participante(){
+  let mis={};try{mis=JSON.parse(ls.get('campo-'+T.SESION)||'{}');}catch(e){}
+  const estado={}; // id -> 'ok' | 'err' | 'env'
+  function render(){
+    const hechos=C.filter(c=>mis[c.id]&&mis[c.id].v).length;
+    app.innerHTML=`<p class="lead">Actividad 2 · individual</p><h1>¿Campo u oficina?</h1>
+      <p class="muted">Para cada caso, elegí cómo creés que debería actualizarse. Si dudás, elegí «Depende» y contá de qué depende: esos comentarios son los más útiles para mejorar la matriz.</p>
+      ${TL.demo?'<span class="demo">Modo demostración · sin hoja conectada</span>':''}
+      <div class="row" style="justify-content:space-between"><span class="hint">${hechos} de ${C.length} casos respondidos</span></div>
+      <div class="progress"><span style="width:${100*hechos/C.length}%"></span></div>
+      ${C.map((c,k)=>{const m=mis[c.id]||{};return `<div class="card case" id="case-${c.id}">
+        <span class="num">Caso ${k+1} de ${C.length}</span><h2>${esc(c.t)}</h2><p>${esc(c.d)}</p>
+        <div class="choices">${OPC.map(([v,l])=>`<button class="ch ${v}" data-c="${c.id}" data-v="${v}" aria-pressed="${m.v===v}">${l}</button>`).join('')}</div>
+        <div class="field"><label for="com-${c.id}">¿Por qué? (opcional)</label><textarea id="com-${c.id}" data-com="${c.id}" maxlength="300" placeholder="Por ejemplo: depende de la fecha de la imagen disponible">${esc(m.c||'')}</textarea></div>
+        <div class="row"><button class="btn small ghost" data-save="${c.id}" ${m.v?'':'disabled'}>Guardar comentario</button>
+          <span class="saved" aria-live="polite">${estado[c.id]==='ok'?'Guardado':estado[c.id]==='env'?'Guardando…':''}</span>
+          ${estado[c.id]==='err'?'<span class="hint" style="color:var(--bad)">No se pudo guardar. Probá de nuevo.</span>':''}</div></div>`;}).join('')}
+      <div class="card" style="max-width:420px">${TL.procesoHTML()}</div>
+      <p class="hint">Podés cambiar una respuesta en cualquier momento: cuenta la última.</p>`;
+    TL.bindProceso();
+    app.querySelectorAll('.ch').forEach(b=>b.onclick=()=>{const id=b.dataset.c;mis[id]={...(mis[id]||{}),v:b.dataset.v,c:document.getElementById('com-'+id).value.trim()};guardar(id);});
+    app.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{const id=b.dataset.save;if(!mis[id])return;mis[id].c=document.getElementById('com-'+id).value.trim();guardar(id);});
+    app.querySelectorAll('[data-com]').forEach(t=>t.oninput=()=>{const id=t.dataset.com;if(mis[id]){mis[id].c=t.value;ls.set('campo-'+T.SESION,JSON.stringify(mis));}});
+  }
+  async function guardar(id){ls.set('campo-'+T.SESION,JSON.stringify(mis));estado[id]='env';const y=window.scrollY;render();window.scrollTo(0,y);
+    try{const j=await TL.enviar('voto',[id,mis[id].v,mis[id].c||'']);if(!j.ok)throw new Error(j.mensaje||j.error);estado[id]='ok';}catch(e){estado[id]='err';}
+    const y2=window.scrollY;render();window.scrollTo(0,y2);}
+  render();
+}
+
+// ================= facilitador =================
+function ejemplo(){const r=TL.seeded('demo-campo'),filas=[];const coms=['Depende de la fecha de la imagen','En oficina si la imagen es reciente','Hay que confirmar en sitio','El registro administrativo basta','Zona de riesgo: mejor verificar','Sin imagen útil no se puede en oficina'];
+  for(let p=0;p<14;p++)C.forEach((c,k)=>{const x=r()+k*0.07;const v=x<.42?'campo':x<.78?'oficina':'depende';
+    filas.push({ts:'2026-11-01T00:00:0'+p,pid:'demo'+p,proceso:T.PROCESOS[p%6],campos:[c.id,v,r()<.25?coms[Math.floor(r()*coms.length)]:'']});});return filas;}
+function facilitador(){
+  let cur=0,mostrar=false,filas=[],err='';
+  async function cargar(){try{const f=await TL.leer('voto');filas=TL.demo&&!f.length?ejemplo():f;err='';}catch(e){err=e.message;}render();}
+  function stats(id){const v=TL.ultimas(filas.filter(f=>f.campos[0]===id));const n=v.length;const cnt={campo:0,oficina:0,depende:0};v.forEach(f=>{if(cnt[f.campos[1]]!=null)cnt[f.campos[1]]++;});
+    const max=n?Math.max(cnt.campo,cnt.oficina,cnt.depende)/n:0;return {n,cnt,div:n?1-max:0,coms:v.filter(f=>String(f.campos[2]||'').trim())};}
+  const pct=(a,n)=>n?Math.round(100*a/n):0;
+  function render(){
+    const c=C[cur],s=stats(c.id);const pend=!String(c.matriz||'').trim();
+    const all=C.map((x,k)=>({x,k,s:stats(x.id)}));
+    app.innerHTML=`<p class="lead">Vista del facilitador · se actualiza cada 5 segundos</p>
+      ${TL.demo?'<span class="demo">Datos de ejemplo · conectá la hoja para ver las respuestas reales</span>':''}
+      ${err?`<div class="status err">No se pudieron leer las respuestas: ${esc(err)}</div>`:''}
+      <div class="facgrid">
+        <div class="card" style="gap:14px">
+          <div class="row" style="justify-content:space-between"><span class="hint">Caso ${cur+1} de ${C.length} · ${s.n} respuesta${s.n===1?'':'s'}</span>
+            <span class="row"><button class="btn small ghost" id="bPrev" ${cur===0?'disabled':''}>Anterior</button><button class="btn small ghost" id="bNext" ${cur===C.length-1?'disabled':''}>Siguiente</button></span></div>
+          <div class="big">${esc(c.t)}</div><p style="font-size:18px">${esc(c.d)}</p>
+          <div class="stack">${OPC.map(([v,l])=>s.cnt[v]?`<span class="${v}" style="flex:${s.cnt[v]} 1 0">${pct(s.cnt[v],s.n)} %</span>`:'').join('')}</div>
+          <div class="legend">${OPC.map(([v,l])=>`<span><i style="background:var(--${v})"></i>${l}: <b>${s.cnt[v]}</b></span>`).join('')}</div>
+          <div class="row"><button class="btn${mostrar?' ghost':''}" id="bMat">${mostrar?'Ocultar la matriz':'Mostrar lo que indica la matriz'}</button></div>
+          ${mostrar?`<div class="matriz${pend?' pend':''}">${pend?'<b>Pendiente:</b> escribí en <code>config.js</code> lo que indica la matriz de decisión para este caso.':`<b>Según la matriz de decisión:</b> ${esc(c.matriz)}`}</div>`:''}
+          <h2 style="font-size:22px">Comentarios (${s.coms.length})</h2>
+          ${s.coms.length?`<ul class="comments">${s.coms.map(f=>`<li><span class="tag" style="color:var(--${f.campos[1]})">${esc(OPC.find(o=>o[0]===f.campos[1])?.[1]||'')}</span>${f.proceso?`<span class="tag" style="color:var(--muted)">${esc(f.proceso)}</span>`:''}${esc(f.campos[2])}</li>`).join('')}</ul>`:'<p class="hint">Todavía no hay comentarios para este caso.</p>'}
+        </div>
+        <div class="card"><h2 style="font-size:22px">Todos los casos</h2>
+          <p class="hint">Los casos con más división son los que más conviene discutir. Tocá una fila para verla.</p>
+          <div class="tablewrap"><table class="res"><thead><tr><th>Caso</th><th>Votos</th><th class="n">División</th></tr></thead><tbody>
+          ${all.map(({x,k,s})=>`<tr data-k="${k}" class="${k===cur?'cur':''}"><td>${k+1}. ${esc(x.t)}</td><td><div class="minibar">${OPC.map(([v])=>s.cnt[v]?`<span class="${v}" style="flex:${s.cnt[v]} 1 0"></span>`:'').join('')}</div></td><td class="n">${s.n?pct(s.div*100,100)+' %':'—'}</td></tr>`).join('')}
+          </tbody></table></div>
+          <p class="hint">División: 0 % si todos votaron lo mismo; cuanto más alto, más repartido el grupo.</p></div>
+      </div>`;
+    const g=id=>document.getElementById(id);
+    g('bPrev').onclick=()=>{cur--;mostrar=false;render();};g('bNext').onclick=()=>{cur++;mostrar=false;render();};
+    g('bMat').onclick=()=>{mostrar=!mostrar;render();};
+    app.querySelectorAll('tr[data-k]').forEach(tr=>tr.onclick=()=>{cur=+tr.dataset.k;mostrar=false;render();});
+  }
+  document.addEventListener('keydown',e=>{if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;
+    if(e.key==='ArrowRight'&&cur<C.length-1){cur++;mostrar=false;render();}if(e.key==='ArrowLeft'&&cur>0){cur--;mostrar=false;render();}});
+  render();TL.enVivo(cargar,5000);
+}
+vista==='fac'?facilitador():participante();
+</script>
+</body>
+</html>

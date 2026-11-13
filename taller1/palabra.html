@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Una palabra · Taller 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="estilos.css">
+<style>
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--rule)}
+.tabs button{font:600 15px var(--f-body);background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.q{font-family:var(--f-display);font-weight:700;font-size:34px;line-height:1.1;text-wrap:balance}
+.wordin{font:600 26px var(--f-body);padding:14px 16px;text-align:center}
+.cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 22px;padding:30px 20px;min-height:320px;background:var(--panel);border:1px solid var(--rule);border-radius:14px}
+.cloud span{font-family:var(--f-display);font-weight:700;line-height:1;white-space:nowrap}
+.c0{color:var(--accent)}.c1{color:var(--truth)}.c2{color:var(--good)}.c3{color:var(--mid)}.c4{color:var(--ink)}
+.top{display:flex;flex-wrap:wrap;gap:8px}
+.top span{font:500 13px var(--f-mono);background:var(--panel);border:1px solid var(--rule);border-radius:999px;padding:4px 10px}
+</style>
+</head>
+<body>
+<main><div class="wrap" id="app"></div></main>
+<script src="config.js"></script>
+<script src="comun.js"></script>
+<script>
+const {T,esc,ls}=TL;
+const vista=TL.header('Una palabra');
+const app=document.getElementById('app');
+let momento=ls.get('palabra-momento')||'cierre';
+const MOM=[['inicio','Al inicio'],['cierre','Al cierre']];
+const norm=w=>String(w||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zñ0-9-]/g,'');
+function tabs(){return `<div class="tabs" role="tablist">${MOM.map(([v,l])=>`<button role="tab" data-m="${v}" aria-selected="${momento===v}">${l}</button>`).join('')}</div>`;}
+function bindTabs(fn){app.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{momento=b.dataset.m;ls.set('palabra-momento',momento);fn();});}
+
+// ================= participante =================
+function participante(){
+  let msg='';
+  function render(){
+    const prev=ls.get('palabra-'+T.SESION+'-'+momento)||'';
+    app.innerHTML=`<p class="lead">${momento==='inicio'?'Apertura':'Cierre'} · individual</p>${tabs()}
+      <div class="q">${esc(T.PALABRA[momento])}</div>
+      ${TL.demo?'<span class="demo">Modo demostración · sin hoja conectada</span>':''}
+      <form id="f" class="card" style="gap:14px"><label for="w" class="hint">Una sola palabra, sin espacios</label>
+        <input type="text" id="w" class="wordin" maxlength="24" autocomplete="off" autocapitalize="none" value="${esc(prev)}" placeholder="Tu palabra">
+        <button class="btn" type="submit">${prev?'Cambiar mi palabra':'Enviar'}</button></form>
+      ${msg}<div class="card" style="max-width:420px">${TL.procesoHTML()}</div>`;
+    TL.bindProceso();bindTabs(()=>{msg='';render();});
+    const inp=document.getElementById('w');inp.oninput=()=>{inp.value=inp.value.replace(/\s+/g,'');};
+    document.getElementById('f').onsubmit=async e=>{e.preventDefault();const w=inp.value.trim();
+      if(!norm(w)){msg='<div class="status err">Escribí una palabra con letras o números.</div>';render();return;}
+      try{const j=await TL.enviar('palabra',[momento,w]);if(!j.ok)throw new Error(j.mensaje||j.error);ls.set('palabra-'+T.SESION+'-'+momento,w);
+        msg='<div class="status ok">¡Gracias! Tu palabra ya aparece en la pantalla compartida.</div>';}
+      catch(err){msg=`<div class="status err">No se pudo enviar: ${esc(err.message)}.</div>`;}
+      render();};
+  }
+  render();
+}
+
+// ================= facilitador =================
+function ejemplo(){const ws={inicio:['expectativa','curiosidad','dudas','aprender','claridad','curiosidad','cambio','participar','dudas','esperanza','curiosidad','aprender'],
+  cierre:['claridad','claridad','motivación','dudas','claridad','compromiso','útil','participación','motivación','claridad','retos','esperanza','útil']};
+  const f=[];Object.entries(ws).forEach(([m,a])=>a.forEach((w,i)=>f.push({ts:'2026-11-01T00:00:0'+i,pid:'demo'+i,proceso:'',campos:[m,w]})));return f;}
+function facilitador(){
+  let filas=[],err='';
+  async function cargar(){try{const f=await TL.leer('palabra');filas=TL.demo&&!f.length?ejemplo():f;err='';}catch(e){err=e.message;}render();}
+  function render(){
+    const v=TL.ultimas(filas.filter(f=>f.campos[0]===momento));
+    const grupos=new Map();v.forEach(f=>{const k=norm(f.campos[1]);if(!k)return;const g=grupos.get(k)||{w:String(f.campos[1]).trim().toLowerCase(),n:0};g.n++;grupos.set(k,g);});
+    const arr=[...grupos.values()].sort((a,b)=>b.n-a.n||a.w.localeCompare(b.w));const max=arr.length?arr[0].n:1;
+    // nube: la más repetida al centro, alternando a los lados
+    const orden=[];arr.forEach((g,i)=>i%2?orden.push(g):orden.unshift(g));
+    app.innerHTML=`<p class="lead">Vista del facilitador · se actualiza cada 5 segundos</p>${tabs()}
+      <div class="q">${esc(T.PALABRA[momento])}</div>
+      ${TL.demo?'<span class="demo">Datos de ejemplo · conectá la hoja para ver las respuestas reales</span>':''}
+      ${err?`<div class="status err">No se pudieron leer las respuestas: ${esc(err)}</div>`:''}
+      <div class="kpis"><div class="kpi"><b>${v.length}</b><span>personas respondieron</span></div><div class="kpi"><b>${arr.length}</b><span>palabras distintas</span></div></div>
+      <div class="cloud" aria-label="Nube de palabras">${orden.length?orden.map((g,i)=>`<span class="c${(arr.indexOf(g))%5}" style="font-size:${Math.round(22+58*Math.sqrt(g.n/max))}px" title="${g.n}">${esc(g.w)}</span>`).join(''):'<span class="hint" style="font-family:var(--f-body);font-weight:400">Las palabras van a aparecer aquí a medida que lleguen.</span>'}</div>
+      ${arr.length?`<div class="top">${arr.slice(0,12).map(g=>`<span>${esc(g.w)} · ${g.n}</span>`).join('')}</div>`:''}`;
+    bindTabs(render);
+  }
+  render();TL.enVivo(cargar,5000);
+}
+vista==='fac'?facilitador():participante();
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Taller 1 · Actividades</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<main><div class="wrap" id="app"></div></main>
+<script src="config.js"></script>
+<script src="comun.js"></script>
+<script>
+TL.header('');
+const A=[
+  {href:'flujo.html',n:'Actividad 1',t:'Ordená el flujo',d:'Acomodá las etapas del flujo de actualización continua del MGN en el orden en que creés que ocurren.',min:'3 min'},
+  {href:'campo.html',n:'Actividad 2',t:'¿Campo u oficina?',d:'Para cada caso, decidí si la actualización debería hacerse en campo o en oficina, y por qué.',min:'8 min'},
+  {href:'palabra.html',n:'Cierre',t:'Una palabra',d:'Una sola palabra sobre cómo llegás o cómo te vas del taller.',min:'2 min'},
+];
+document.getElementById('app').innerHTML=`
+  <p class="lead">${TL.esc(TL.T.SUBTITULO)}</p>
+  <h1>Actividades del taller</h1>
+  <p class="muted">Abrí la actividad cuando el equipo facilitador lo indique. Tus respuestas son anónimas; el proceso es opcional y solo sirve para agrupar resultados.</p>
+  ${TL.demo?'<span class="demo">Modo demostración · sin hoja conectada</span>':''}
+  <div class="card" style="max-width:420px">${TL.procesoHTML()}</div>
+  <div class="grid3">${A.map(a=>`<a class="card" href="${a.href}" style="text-decoration:none;color:inherit">
+    <span class="hint">${a.n} · ${a.min}</span><h2>${a.t}</h2><p class="muted">${a.d}</p></a>`).join('')}</div>
+  `;
+TL.bindProceso();
+</script>
+</body>
+</html>
